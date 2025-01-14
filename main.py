@@ -1,0 +1,545 @@
+import codecs
+import configparser
+import glob
+import json
+import logging
+import os
+import queue
+import re
+import sqlite3
+import threading
+import time
+import webbrowser
+import socketio
+import ultralytics
+from flask import Flask, request, jsonify, render_template, send_from_directory, Response  # 引入包中要使用的类
+from flask_cors import CORS
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.live import Live
+from werkzeug.serving import run_simple
+from getNum import auto_run
+from library.GUI.main import ServerGUI
+from library.sql import main as sql
+from library.sql.main import check_and_create_database, insert_hub_info, query_hub_info_by_mold_number, \
+    query_mold_info_by_number, update_mold_info, query_all_hub_info, execute_custom_sql
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+log_file = os.path.join(current_dir, 'app.log')
+logSwitch = "true"
+debug= 'false'
+host=''
+database_file = "./db/data.db"
+port = ''
+UPLOAD_FOLDER=''
+use_https=False
+API={
+    'isHTTPS':'isHTTPS',
+    'clear':'clear',
+    'getpicture':'getpicture',
+    'start':'start',
+    'upload':'upload',
+    'test':'test',
+    'info':'info',
+}
+# 定义命令列表
+commands = ["help", "blacklist", "sql", "server"]
+command_blacklist = ["drop table", "truncate", "delete from", "update"]
+def sql_help(_):
+    help="""
+    无拓展命令将直接执行操作
+    数据库包含的表: hub_info, mold_info
+    "--help": 帮助
+    "--check_sql": 检查数据库，无参数
+    "--insert": 要插入的模具编号
+    "--lun-gu-info-model": 要查询的模具编号
+    "--mo-ju-jinfo-model": 要查询的模具编号
+    "--query_all_hub_info": 快速无参查询
+    "--execute_custom_sql": 执行自定义SQL语句（绕过黑名单）
+    """
+    return help
+sql_command_map = {
+    "--help":(sql_help,'none') ,
+    "--check_sql": (check_and_create_database, "none"),  # 检查数据库，无参数
+    "--insert": (insert_hub_info, "mold_number: 要插入的模具编号"),
+    "--lun-gu-info-model": (query_hub_info_by_mold_number, "mold_number: 要查询的模具编号"),
+    "--mo-ju-jinfo-model": (query_mold_info_by_number, "mold_number: 要查询的模具编号"),
+    "--query_all_hub_info": (query_all_hub_info, "none"),
+    "--execute_custom_sql": (execute_custom_sql, "command: 自定义SQL语句")
+}
+mode="nomal"
+# 存储客户端的 UUID 和 socket ID 的映射关系
+clients = {}
+# 用于通知主线程 GUI 已经成功创建的事件
+gui_created_event = threading.Event()
+gui=None
+def log_event(event, result, remark=None, first_log=False):
+    """
+    记录日志并刷新 GUI 日志显示。
+
+    :param event: 日志事件名称
+    :param result: 日志事件结果
+    :param remark: 日志备注（默认为空）
+    :param first_log: 是否为第一次日志（决定是覆盖还是追加日志）
+    """
+    remark = "" if remark is None else remark
+
+    if logSwitch.lower() == 'true':
+        # 构造日志数据字典
+        log_data = {
+            "timestamp": time.strftime("%H:%M:%S"),
+            "event": event,
+            "result": result,
+            "remark": remark
+        }
+        if result!='successfully':
+            send_message_to_client(f"服务器在执行{log_data[event]}时出错,严重等级{log_data[result]},备注信息{log_data[remark]}")
+        if not first_log:
+            # 将日志数据写入文本文件，以追加模式
+            with codecs.open("server.log", "a", encoding='utf-8') as f:
+                json.dump(log_data, f, ensure_ascii=False)
+                f.write('\n')
+        else:
+            with codecs.open("server.log", "w", encoding='utf-8') as f:
+                json.dump(log_data, f, ensure_ascii=False)
+                f.write('\n')
+
+    # 等待 GUI 初始化完成后再刷新日志
+    if gui_created_event.is_set() and gui:
+        gui.log_event(log_data)  # 刷新 GUI 日志
+
+
+class ConfigManager:
+    def __init__(self, config_file='config.ini'):
+        self.config = configparser.ConfigParser()
+        self.config_file = config_file
+        if not os.path.exists(self.config_file):
+            # 创建节
+            self.config.add_section('Settings')
+            self.config.add_section('SSH_Service')
+            self.config.add_section('API_Service')
+            # 添加注释和配置项
+            with open(self.config_file, 'w') as configfile:
+                configfile.write('# 这是一份服务器的配置文件,你在修改它需要重启服务器才能生效.\n')
+                configfile.write('[Settings]\n')
+                configfile.write('# "host" 用于更改服务器监听的IP或者域名,默认是 127.0.0.1\n')
+                configfile.write('host = 127.0.0.1\n')
+                configfile.write('# "port" 用于更改服务器监听的端口,在不启用Https下生效,默认为5000\n')
+                configfile.write('port = 5000\n')
+                configfile.write('# "debug" 用于指定服务器是否处于测试模式,无实际用途.\n')
+                configfile.write('debug = false\n')
+                configfile.write(
+                    '# "logSwitch" 用于控制前端是否可以获取服务器的日志.\n')
+                configfile.write('logSwitch = true\n')
+
+                configfile.write('\n[SSH_Service]\n')
+                configfile.write('# use_https 告诉服务器是否使用更安全的HTTPS协议,默认为false.\n')
+                configfile.write('# 一旦开启use_https选项,请在前端同步本设置.你可以在高级设置中找到它.\n')
+                configfile.write('# 请确保你拥有该域名有效的证书和私钥,否则前端将不信任服务器,导致无法使用基本功能.\n')
+                configfile.write('# 请在切换前将证书和私钥放在ssh_path指定的目录下.\n')
+                configfile.write('use_https = false\n')
+                configfile.write('# "ssh_path" 指定证书和私钥的目录\n')
+                configfile.write('ssh_path = ./CRT\n')
+
+                configfile.write('\n[API_Service]\n')
+                configfile.write('# 这里是API更改区域,你可以定制你的API接口.更改后需要前端在高级设置中同步更改\n')
+                configfile.write('# USE_OPTIONS 服务器只有在检测到此选项为true的时候才会应用定制化API接口\n')
+                configfile.write('USE_OPTIONS = false\n')
+                configfile.write('# isHTTPS 选项指定服务器是否使用 HTTPS 服务\n')
+                configfile.write('isHTTPS = isHTTPS\n')
+                configfile.write('# Clear选项指定用户清除上传图像时使用的API\n')
+                configfile.write('clear = clear\n')
+                configfile.write('# getpicture选项指定用户查看上传图像时使用的API\n')
+                configfile.write('getpicture = getpicture\n')
+                configfile.write('# start option specifies the API used when the front-end requests the server to start processing\n')
+                configfile.write('start = start\n')
+                configfile.write('# upload option specifies the API requested when a user uploads images\n')
+                configfile.write('upload = upload\n')
+                configfile.write('# test option specifies the API used to test the connection status of the front-end\n')
+                configfile.write('test = test\n')
+                configfile.write('# info option specifies the API used to get upload file information from the server\n')
+                configfile.write('info = info\n')
+        else:
+            self.config.read(self.config_file)
+
+    def get(self, section, option):
+        try:
+            log_event('设置服务', 'successfully', f'{section}>{option}')
+            return self.config.get(section, option)
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            log_event('设置服务', 'warning', f'{section}>{option}')
+            return None
+
+    def get_with_default(self, section, option, default=None):
+        try:
+            log_event('设置服务', 'successfully', f'{section}>{option}')
+            return self.config.get(section, option)
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            log_event('设置服务', 'warning', f'{section}>{option}')
+            return default
+
+    def set(self, section, option, value):
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+        log_event('设置服务', 'successfully', f'write {section}>{option} = {value}')
+        self.config.set(section, option, value)
+        with open(self.config_file, 'w') as configfile:
+            self.config.write(configfile)
+
+    def remove_option(self, section, option):
+        if self.config.has_section(section) and self.config.has_option(section, option):
+            self.config.remove_option(section, option)
+            log_event('设置服务', 'successfully', f'del {section}>{option} ')
+            with open(self.config_file, 'w') as configfile:
+                self.config.write(configfile)
+
+config_manager = ConfigManager()
+console = Console()
+app = Flask(__name__, static_url_path='/', static_folder='./flask-dist', template_folder='./flask-dist')
+
+# 配置 Flask-SocketIO 允许跨域
+socketios = SocketIO(app, cors_allowed_origins="*")  # 允许所有来源
+
+def delete_files_in_folder(folder_path='./flask-dist/UPLOAD', filename=None):
+  """删除指定文件夹下的所有文件或指定文件
+
+  Args:
+    folder_path: 要删除文件的文件夹路径
+    filename: 要删除的文件名（可选）
+  """
+  for root, dirs, files in os.walk(folder_path):
+    for file in files:
+      file_path = os.path.join(root, file)
+      if filename and file != filename:  # 如果指定了文件名，且当前文件不是指定的文件，则跳过
+          continue
+      try:
+        os.remove(file_path)
+        print(f"Deleted file: {file_path}")
+      except OSError as e:
+        print(f"Error deleting file {file_path}: {e}")
+
+def blacklist_operations(command):
+    if "--help" in command:
+        return  jsonify("可执行的参数有：--help显示可执行的参数，--add临时向backlist列表添加黑名单命令，--remove临时删除黑名单内的命令，--show显示黑名单的指令（默认无参数也是显示黑名单指令）")
+    elif "--add" in command:
+        command_blacklist.append(command.split("--add")[1].strip())
+        log_event('SQL blacklist', 'successfully', f'add {command}')
+        return jsonify(f"已将'{command.split('--add')[1].strip()}'添加到黑名单列表。")
+    elif "--remove" in command:
+        if command.split("--remove")[1].strip() in command_blacklist:
+            command_blacklist.remove(command.split("--remove")[1].strip())
+            log_event('SQL blacklist', 'successfully', f'remove {command}')
+            return jsonify(f"已从黑名单列表中删除'{command.split('--remove')[1].strip()}'。")
+        else:
+            return f"'{command.split('--remove')[1].strip()}'不在黑名单列表中，无法删除。"
+    elif "--show" in command or not any(arg in command for arg in ["--add", "--remove", "--help"]):
+        return jsonify (f"当前黑名单列表：{command_blacklist}")
+    else:
+        return jsonify( "无效的黑名单操作命令。")
+
+# 执行SQL命令的函数
+def execute_sql(command):
+    print(command)
+    for keyword in command_blacklist:
+        if keyword in command.lower():
+            log_event('SQL blacklist', 'warning', f'can`t run {command} with SQL')
+            return jsonify(f"禁止执行包含'{keyword}'的命令")
+
+        # 匹配命令和参数
+    for cmd, (func, params_desc) in sql_command_map.items():
+        if command.startswith(cmd):
+            args = command[len(cmd):].strip()  # 获取参数部分
+            if params_desc == "none" and args:
+                log_event('SQL service', 'warning', f'不可接受的参数{cmd}')
+                return jsonify(f"命令 {cmd} 不接受参数")
+            try:
+                if params_desc !='none':
+                    log_event('SQL service', 'successfully')
+                    result = func(database_file, args)
+                else:
+                    log_event('SQL service', 'successfully')
+                    result = func(database_file)
+                return jsonify(result)
+            except Exception as e:
+                log_event('SQL service', 'error',f'{str(e)}')
+                return jsonify(f"命令执行失败: {str(e)}")
+    return jsonify(sql.execute_custom_sql(database_file, command))
+
+@app.route('/')
+def mainPage():
+    return render_template('index.html')
+
+
+@app.route(f'/ {API["isHTTPS"]}')
+def isHTTPS():
+    return jsonify(port == 443),200
+
+@app.route(f'/{API["clear"]}')
+def clear_files():
+  filename = request.args.get('filename')  # 从请求参数中获取文件名
+  delete_files_in_folder(filename=filename)
+  return jsonify('Delete'), 200
+
+@app.route(f'/{API["getpicture"]}',methods=['GET', 'POST'])
+def getpic():
+    filename = request.args.get('name')
+    if not filename:
+        log_event('文件获取服务', 'warning', f'要查找的文件名{filename}不合法')
+        return jsonify({'error': 'No filename provided'}), 400
+    # 确保文件存在
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    if not os.path.exists(file_path):
+        log_event('文件获取服务', 'error', f'要找的文件{file_path}不存在')
+        return jsonify({'error': 'File does not exist'}), 404
+    # 确保 Flask 应用有权限读取文件
+    if not os.access(file_path, os.R_OK):
+        log_event('文件获取服务', 'error', f'文件{file_path}读取权限被拒绝')
+        return jsonify({'error': 'File is not readable'}), 403
+    # 返回图片文件
+    log_event('文件获取服务', 'successfully', '成功')
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route(f'/{API["start"]}', methods=['GET', 'POST'])
+def start():
+    text= auto_run(None)
+    delete_files_in_folder('./cache/')
+    log_event('OCR Service', 'successfully',text)
+    insert_hub_info(db_file=database_file,mold_number=text)
+    return jsonify([text]),200
+
+@app.route(f'/{API["upload"]}', methods=['POST'])
+def upload_file():
+    try:
+        files = request.files
+        print(files, request.files)
+        for file in files:
+            if file and files[file].filename != '':
+                filename = files[file].filename
+                with open(os.path.join(UPLOAD_FOLDER, 'pic'), 'wb') as f:
+                    for chunk in files[file].stream:
+                        f.write(chunk)
+        log_event('文件上传服务','successfully')
+        return jsonify({'message': 'Done'})
+    except Exception as e:
+        # Handle exception and return appropriate error response
+        log_event('文件上传服务','error','文件接受失败')
+        return jsonify({'error': str(e)}), 500  # 500 indicates internal server error
+
+@app.route(f'/{API["test"]}')
+def test():
+    log_event('通信检测服务','successfully')
+    return jsonify('You already connect the server now!')
+
+@app.route(f'/{API["info"]}')
+def return_info():
+    file_num = 0
+    file_list=[]
+    for fn in os.listdir('./flask-dist/UPLOAD'):  # fn 表示的是文件名
+        file_name=[]
+        url=f'http://127.0.0.1:{port}/getpicture?name={fn}'
+        fsize = str(round(os.path.getsize("./flask-dist/UPLOAD/"+fn)/1024/1024 ,2)) + 'MiB'
+        file_num = file_num + 1
+        file_name.append(url)
+        file_name.append(fn)
+        file_name.append(fsize)
+        file_list.append(file_name)
+    log_event('文件查询服务','successfully')
+    return jsonify({'file_count':file_num,'file_list':file_list,'API':API}),200
+
+@app.errorhandler(404)
+def page404(e):
+    return render_template('/error_page/404.html'), 404
+
+def print_info(host,port,elseinfo=''):
+    os.system('cls' if os.name.lower() == 'nt' else 'clear')
+    if port == 443:
+        print(f"Server will running at https://{host}/")
+        if debug == 'false':
+            webbrowser.open(f'https://{host}/')
+    else:
+        print(f"Server will running at http://{host}:{port}")
+        if debug == 'false':
+            webbrowser.open(f'http://{host}:{port}')
+    print(elseinfo)
+
+# 获取日志 API
+@app.route('/get_logs', methods=['GET'])
+def get_logs():
+    if logSwitch.lower() == 'true':
+        with codecs.open('server.log', 'r', encoding='utf-8') as f:
+            logs = []
+            for line in f:
+                line = line.strip()
+                data = json.loads(line)
+                logs.append(data)
+
+        # 使用 json.dumps 来确保返回 JSON 数据时不转义中文
+        response_data = json.dumps(logs, ensure_ascii=False)
+        return Response(response_data, mimetype='application/json; charset=utf-8')
+    else:
+        log_event('日志记录服务', 'warning', '前端尝试读取日志，但是被服务器拒绝')
+        return jsonify({'message': '日志访问功能被拒绝，请尝试在配置文件开启日志查询服务。'})
+
+def get_ssl_files_paths(ssh_path,key_ext='.key',crt_ext='.crt'):
+    """
+        从指定文件夹中查找并返回扩展名为.key和.crt的文件的完整路径。
+
+        Args:
+            ssh_path (str): 需要搜索的文件夹路径。
+            key_ext (str, optional): .key文件扩展名。默认为'.key'。
+            crt_ext (str, optional): .crt文件扩展名。默认为'.crt'。
+
+        Returns:
+            tuple: 包含.key文件和.crt文件完整路径的元组。
+
+        Raises:
+            FileNotFoundError: 如果未找到指定扩展名的文件。
+        """
+
+    # 确保ssh_path是绝对路径
+    ssh_path = os.path.abspath(ssh_path)
+
+    # 查找所有符合扩展名的文件
+    key_files = glob.glob(os.path.join(ssh_path, f"*{key_ext}"))
+    crt_files = glob.glob(os.path.join(ssh_path, f"*{crt_ext}"))
+
+    # 如果找到多个文件，这里可以加入额外的逻辑来选择具体的文件
+    key_file_path = key_files[0] if key_files else ""
+    crt_file_path = crt_files[0] if crt_files else ""
+
+    return key_file_path, crt_file_path
+@app.route('/getdatabase')
+def get_database():
+    hub_info_results = sql.query_all_hub_info(database_file)
+    return jsonify({'result': hub_info_results}),200
+@app.route('/command',methods=['GET','POST'])
+def run_command():
+    global mode
+    command = request.args.get('command')
+    try:
+        if mode == 'sql':
+            if command.lower() == "exit":
+                mode = 'normal'
+                return jsonify( "已退出SQL执行模式，返回正常模式。")
+            else:
+                result = execute_sql(command)
+                return result
+        else:
+            if  command.lower().startswith("help"):
+                return jsonify("可用命令有：help（显示帮助信息），blacklist（进行黑名单相关操作，可带参数如--help等），sql（进入单独的SQL执行模式，输入exit回退到正常模式）")
+            elif command.lower().startswith("blacklist"):
+                return blacklist_operations(command)
+            elif "sql" in command.lower():
+                mode = 'sql'
+                print("已进入SQL执行模式，输入exit可回退到正常模式。")
+                return jsonify('已进入SQL执行模式，输入exit可回退到正常模式。你可输入 --help 查看帮助')
+            elif "exit" in command.lower():
+                return jsonify('')
+            else:
+                return jsonify("无效的命令，请输入有效的命令。")
+    except Exception as e:
+        return jsonify(f"发生错误：{str(e)}")
+
+# 监听客户端注册事件（传递 UUID）
+@socketios.on('register')
+def handle_register(data):
+    client_uuid = data['uuid']
+
+    # 检查是否已经有该 UUID 的客户端，如果有，保留之前的 sid，否则新分配 sid
+    if client_uuid not in clients:
+        clients[client_uuid] = request.sid
+        print(f"客户端 {client_uuid} 注册，sid: {request.sid}")
+        gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
+    else:
+        print(f"客户端 {client_uuid} 已存在，sid: {clients[client_uuid]}")
+    # 向客户端发送注册成功的消息
+    send_message_to_client('客户端注册成功', client_uuid)
+
+
+# 发送消息到指定客户端
+def send_message_to_client(message, client_uuid=None):
+    if client_uuid in clients:
+        sid = clients[client_uuid]
+        socketios.emit('new_message', {'message': message}, room=sid)
+        print(f"消息已发送到客户端 {client_uuid}")
+    elif client_uuid is None:
+        socketios.emit('new_message', {'message': message})
+        print(f"消息已广播到所有已连接客户端")
+    else:
+        print(f"未找到客户端 {client_uuid}")
+
+def init():
+    #获取用户配置文件信息
+    global host,port,UPLOAD_FOLDER,API,debug,logSwitch,gui,use_https
+    log_event('设置读取服务','successfully',first_log=True)
+    sql.check_and_create_database(database_file)
+    host = config_manager.get_with_default('Settings', 'host','127.0.0.1')
+    logSwitch=config_manager.get_with_default('Settings', 'logSwitch','true')
+    port = config_manager.get_with_default('Settings', 'port','5000')
+    debug = config_manager.get_with_default('Settings', 'debug','false')
+    use_https=False if config_manager.get_with_default('SSH_Service', 'use_https','false') else True
+    ssh_key,ssh_crt  = get_ssl_files_paths(config_manager.get_with_default('SSH_Service', 'ssh_path','./CRT'))
+    if config_manager.get_with_default('API_Service', 'USE_OPTIONS', 'false') == 'true':
+        API['isHTTPS'] = config_manager.get_with_default('API_Service', 'isHTTPS', 'isHTTPS')
+        API['clear'] = config_manager.get_with_default('API_Service', 'clear', 'clear')
+        API['getpicture'] = config_manager.get_with_default('API_Service', 'getpicture', 'getpicture')
+        API['start'] = config_manager.get_with_default('API_Service', 'start', 'start')
+        API['upload'] = config_manager.get_with_default('API_Service', 'upload', 'upload')
+        API['test'] = config_manager.get_with_default('API_Service', 'test', 'test')
+        API['info'] = config_manager.get_with_default('API_Service', 'info', 'info')
+        log_event('设置读取服务', 'warning','API出现变更，注意在前端更改')
+        print('服务器API变更，请在前端更改配置：')
+    UPLOAD_FOLDER = 'flask-dist/UPLOAD'
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    delete_files_in_folder()
+    print_info(host,port,'看起来你支持HTTPS服务，你可以随时开启它！' if ssh_key !='' and ssh_crt!='' else '启动成功！')
+    log_event('设置读取服务','successfully','看起来你支持HTTPS服务，你可以随时开启它！')
+    log_event('SERVER START SUCCESS', 'successfully', '启动成功')
+    console.print('')
+    CORS(app)
+
+    if use_https:
+        print("HTTPS服务器暂不支持[消息注册]服务以及端口定制,将默认占用443端口.")
+        context = (f'{ssh_crt}/cert.crt', f'{ssh_key}/key.key')
+        run_simple(host, 443, app, ssl_context=context)
+    else:
+        socketios.run(debug= True if debug == 'true' else False,host=host, port=int(port), app=app, allow_unsafe_werkzeug=True)
+def run_gui():
+    """ 启动 GUI 界面 """
+    global gui
+    host = config_manager.get_with_default('Settings', 'host', '127.0.0.1')
+    logSwitch = config_manager.get_with_default('Settings', 'logSwitch', 'true')
+    port = config_manager.get_with_default('Settings', 'port', '5000')
+    use_https = False if config_manager.get_with_default('SSH_Service', 'use_https', 'false') else True
+
+    # 创建 GUI 实例
+    gui = ServerGUI(
+        server_url=f"https://{host}" if use_https else f"http://{host}:{port}",
+        use_https=use_https,
+        ssh_path=config_manager.get_with_default('SSH_Service', 'ssh_path', './CRT'),
+        AdvanceAPISetting=config_manager.get_with_default('API_Service', 'USE_OPTIONS', 'false') == 'true',
+        logSwitch=logSwitch
+    )
+    gui_created_event.set()
+
+    try:
+        gui.showGUI()
+    except KeyboardInterrupt:
+        print("Shutting down...")
+    finally:
+        gui.stop()
+
+
+if __name__ == '__main__':
+    print("Server Starting...")
+    # 创建并启动一个线程来运行 Flask 服务器
+    flask_thread = threading.Thread(target=init)
+    flask_thread.daemon = True
+    flask_thread.start()
+    # 在主线程中运行 GUI
+    run_gui()
+    # init()
