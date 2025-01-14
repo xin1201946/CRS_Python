@@ -2,30 +2,23 @@ import codecs
 import configparser
 import glob
 import json
-import logging
 import os
-import queue
-import re
-import sqlite3
 import threading
 import time
 import webbrowser
-import socketio
-import ultralytics
-from flask import Flask, request, jsonify, render_template, send_from_directory, Response  # 引入包中要使用的类
+
+from flask import Flask, render_template
+from flask import request, jsonify, send_from_directory, Response  # 引入包中要使用的类
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-from rich.live import Live
 from werkzeug.serving import run_simple
+
 from getNum import auto_run
 from library.GUI.main import ServerGUI
 from library.sql import main as sql
 from library.sql.main import check_and_create_database, insert_hub_info, query_hub_info_by_mold_number, \
-    query_mold_info_by_number, update_mold_info, query_all_hub_info, execute_custom_sql
-from flask import Flask, render_template
-from flask_socketio import SocketIO, emit
+    query_mold_info_by_number, query_all_hub_info, execute_custom_sql
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(current_dir, 'app.log')
