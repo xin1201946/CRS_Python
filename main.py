@@ -456,7 +456,7 @@ def handle_register(data):
 def send_message_to_client(message, client_uuid=None):
     if client_uuid in clients:
         sid = clients[client_uuid]
-        socketios.emit('new_message', {'message': message}, room=sid)
+        socketios.emit('new_message', {'message': message},to=sid)
         print(f"消息已发送到客户端 {client_uuid}")
     elif client_uuid is None:
         socketios.emit('new_message', {'message': message})
