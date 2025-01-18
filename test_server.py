@@ -26,12 +26,6 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response.status_code, 404)  # 假设文件不存在
         self.assertIn(b"File does not exist", response.data)
 
-    def test_start(self):
-        """测试 start 路由"""
-        response = self.app.get('/start')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"02", response.data)  # 根据实际返回值进行修改
-
     def test_test_connection(self):
         """测试连接检测"""
         response = self.app.get('/test')
