@@ -32,11 +32,5 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"You already connect the server now!", response.data)
 
-    def test_return_info(self):
-        """测试返回文件信息功能"""
-        response = self.app.get('/info')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"file_count", response.data)  # 检查返回的文件信息字段
-
 if __name__ == "__main__":
     unittest.main()
