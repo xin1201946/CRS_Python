@@ -359,22 +359,25 @@ def print_info(host,port,elseinfo=''):
     print(elseinfo)
 
 # 获取日志 API
-@app.route('/get_logs', methods=['GET'])
+@app.route('/getlogs', methods=['GET'])
 def get_logs():
-    if logSwitch.lower() == 'true':
-        with codecs.open('server.log', 'r', encoding='utf-8') as f:
-            logs = []
-            for line in f:
-                line = line.strip()
-                data = json.loads(line)
-                logs.append(data)
+    try:
+        if logSwitch.lower() == 'true':
+            with codecs.open('server.log', 'r', encoding='utf-8') as f:
+                logs = []
+                for line in f:
+                    line = line.strip()
+                    data = json.loads(line)
+                    logs.append(data)
 
-        # 使用 json.dumps 来确保返回 JSON 数据时不转义中文
-        response_data = json.dumps(logs, ensure_ascii=False)
-        return Response(response_data, mimetype='application/json; charset=utf-8')
-    else:
-        log_event('日志记录服务', 'warning', '前端尝试读取日志，但是被服务器拒绝')
-        return jsonify({'message': '日志访问功能被拒绝，请尝试在配置文件开启日志查询服务。'})
+            # 使用 json.dumps 来确保返回 JSON 数据时不转义中文
+            response_data = json.dumps(logs, ensure_ascii=False)
+            return Response(response_data, mimetype='application/json; charset=utf-8')
+        else:
+            log_event('日志记录服务', 'warning', '前端尝试读取日志，但是被服务器拒绝')
+            return jsonify({'message': '日志访问功能被拒绝，请尝试在配置文件开启日志查询服务。'})
+    except Exception as e:
+        log_event('SERVER CANNOT READ LOGS','error',e)
 
 def get_ssl_files_paths(ssh_path,key_ext='.key',crt_ext='.crt'):
     """
@@ -430,39 +433,47 @@ def run_command():
                 print("已进入SQL执行模式，输入exit可回退到正常模式。")
                 return jsonify('已进入SQL执行模式，输入exit可回退到正常模式。你可输入 --help 查看帮助')
             elif "exit" in command.lower():
-                return jsonify('')
+                return jsonify('已返回正常模式')
             else:
+                log_event('Error Command','error',command)
                 return jsonify("无效的命令，请输入有效的命令。")
     except Exception as e:
+        log_event('SERVER CANNOT RUN COMMAND', 'warning', e)
         return jsonify(f"发生错误：{str(e)}")
 
 # 监听客户端注册事件（传递 UUID）
 @socketios.on('register')
 def handle_register(data):
-    client_uuid = data['uuid']
+    try:
+        client_uuid = data['uuid']
 
-    # 检查是否已经有该 UUID 的客户端，如果有，保留之前的 sid，否则新分配 sid
-    if client_uuid not in clients:
-        clients[client_uuid] = request.sid
-        print(f"客户端 {client_uuid} 注册，sid: {request.sid}")
-        gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
-    else:
-        print(f"客户端 {client_uuid} 已存在，sid: {clients[client_uuid]}")
-    # 向客户端发送注册成功的消息
-    send_message_to_client('客户端注册成功', client_uuid)
+        # 检查是否已经有该 UUID 的客户端，如果有，保留之前的 sid，否则新分配 sid
+        if client_uuid not in clients:
+            clients[client_uuid] = request.sid
+            print(f"客户端 {client_uuid} 注册，sid: {request.sid}")
+            gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
+        else:
+            print(f"客户端 {client_uuid} 已存在，sid: {clients[client_uuid]}")
+        # 向客户端发送注册成功的消息
+        send_message_to_client('客户端注册成功', client_uuid)
+    except Exception as e:
+        log_event('SERVER CANNOT SEND MESSAGE', 'error', e)
 
 
 # 发送消息到指定客户端
 def send_message_to_client(message, client_uuid=None):
-    if client_uuid in clients:
-        sid = clients[client_uuid]
-        socketios.emit('new_message', {'message': message},to=sid)
-        print(f"消息已发送到客户端 {client_uuid}")
-    elif client_uuid is None:
-        socketios.emit('new_message', {'message': message})
-        print(f"消息已广播到所有已连接客户端")
-    else:
-        print(f"未找到客户端 {client_uuid}")
+    try:
+        if client_uuid in clients:
+            sid = clients[client_uuid]
+            socketios.emit('new_message', {'message': message},to=sid)
+            print(f"消息已发送到客户端 {client_uuid}")
+        elif client_uuid is None:
+            socketios.emit('new_message', {'message': message})
+            print(f"消息已广播到所有已连接客户端")
+        else:
+            print(f"未找到客户端 {client_uuid}")
+    except Exception as e:
+        log_event('SERVER SEND MESSAGE FAILED', 'error', e)
 
 def init():
     #获取用户配置文件信息
@@ -530,9 +541,12 @@ def run_gui():
 if __name__ == '__main__':
     print("Server Starting...")
     # 创建并启动一个线程来运行 Flask 服务器
-    flask_thread = threading.Thread(target=init)
-    flask_thread.daemon = True
-    flask_thread.start()
-    # 在主线程中运行 GUI
-    run_gui()
+    try:
+        flask_thread = threading.Thread(target=init)
+        flask_thread.daemon = True
+        flask_thread.start()
+        # 在主线程中运行 GUI
+        run_gui()
+    except Exception as e:
+        log_event('SERVER STATUS', 'error', e)
     # init()

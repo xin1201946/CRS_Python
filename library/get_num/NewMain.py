@@ -7,7 +7,7 @@ from ultralytics import YOLO
 temp=pathlib.PosixPath
 pathlib.PosixPath=pathlib.WindowsPath
 # 加载模型
-model = YOLO("./library/get_num/num-cls-yolo11n-v2.pt")
+model = YOLO("./library/get_num/num-cls-yolo11n-v3.pt")
 
 def compute_skew(image):
     # 确保图像是灰度的
