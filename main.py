@@ -88,8 +88,13 @@ def log_event(event, result, remark=None, first_log=False):
             "result": result,
             "remark": remark
         }
-        if result!='successfully':
-            send_message_to_client(f"服务器在执行{log_data[event]}时出错,严重等级{log_data[result]},备注信息{log_data[remark]}")
+
+        # 在事件未成功时发送错误信息
+        if result != 'successfully':
+            # 使用字典的键直接访问
+            send_message_to_client(f"服务器在执行{log_data['event']}时出错,严重等级{log_data['result']},备注信息{log_data['remark']}")
+
+        # 追加日志或覆盖日志
         if not first_log:
             # 将日志数据写入文本文件，以追加模式
             with codecs.open("server.log", "a", encoding='utf-8') as f:
@@ -103,6 +108,7 @@ def log_event(event, result, remark=None, first_log=False):
     # 等待 GUI 初始化完成后再刷新日志
     if gui_created_event.is_set() and gui:
         gui.log_event(log_data)  # 刷新 GUI 日志
+
 
 
 class ConfigManager:
@@ -276,24 +282,34 @@ def clear_files():
   delete_files_in_folder(filename=filename)
   return jsonify('Delete'), 200
 
-@app.route(f'/{API["getpicture"]}',methods=['GET', 'POST'])
+
+@app.route(f'/{API["getpicture"]}', methods=['GET', 'POST'])
 def getpic():
-    filename = request.args.get('name')
-    if not filename:
-        log_event('文件获取服务', 'warning', f'要查找的文件名{filename}不合法')
-        return jsonify({'error': 'No filename provided'}), 400
-    # 确保文件存在
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    if not os.path.exists(file_path):
-        log_event('文件获取服务', 'error', f'要找的文件{file_path}不存在')
-        return jsonify({'error': 'File does not exist'}), 404
-    # 确保 Flask 应用有权限读取文件
-    if not os.access(file_path, os.R_OK):
-        log_event('文件获取服务', 'error', f'文件{file_path}读取权限被拒绝')
-        return jsonify({'error': 'File is not readable'}), 403
-    # 返回图片文件
-    log_event('文件获取服务', 'successfully', '成功')
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    try:
+        filename = request.args.get('name')
+        if not filename:
+            log_event('文件获取服务', 'warning', f'要查找的文件名{filename}不合法')
+            return jsonify({'error': 'No filename provided'}), 400
+
+        # 确保文件存在
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        if not os.path.exists(file_path):
+            log_event('文件获取服务', 'error', f'要找的文件{file_path}不存在')
+            return jsonify({'error': 'File does not exist'}), 404
+
+        # 确保 Flask 应用有权限读取文件
+        if not os.access(file_path, os.R_OK):
+            log_event('文件获取服务', 'error', f'文件{file_path}读取权限被拒绝')
+            return jsonify({'error': 'File is not readable'}), 403
+
+        # 返回图片文件
+        log_event('文件获取服务', 'successfully', '成功')
+        return send_from_directory(UPLOAD_FOLDER, filename)
+
+    except Exception as e:
+        log_event('文件获取服务', 'error', f'发生未处理的异常: {str(e)}')
+        return jsonify({'error': 'Internal server error'}), 500
+
 
 @app.route(f'/{API["start"]}', methods=['GET', 'POST'])
 def start():
