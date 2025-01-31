@@ -1,31 +1,58 @@
 {
-  "short_name": "CCRS",
-  "name": "铸造字识别系统",
+  "short_name": "CastingRecognitionSystem",
+  "name": "智能铸造字识别系统",
   "icons": [
     {
-      "src": "CCRS.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "src": "64x64.ico",
+      "sizes": "64x64",
       "type": "image/x-icon"
+
     },
     {
-      "src": "CCRS.png",
-      "type": "image/png",
-      "sizes": "192x192"
+      "src": "32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
     },
     {
-      "src": "CCRS.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "24x24.png",
+      "sizes": "24x24",
+      "type": "image/png"
+
     },
     {
-      "src": "CCRS.png",
-      "sizes": "64x64 32x32 24x24 16x16 512x512 192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "src": "16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+
+    },
+    {
+      "src": "512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+
+    },
+    {
+      "src": "192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+
     }
   ],
-  "start_url": ".",
+  "screenshots": [
+    {
+      "src": "PC.png",
+      "form_factor": "wide",
+      "sizes": "1865x878"
+    },
+    {
+      "src": "Phone.png",
+      "sizes": "355x785"
+    }
+  ],
+  "start_url": "/",
+  "id": "casting_recognition_system",
   "display": "standalone",
+  "display_override": ["window-controls-overlay"],
   "theme_color": "#000000",
   "background_color": "#ffffff"
 }

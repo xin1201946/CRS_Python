@@ -3,6 +3,7 @@ import configparser
 import glob
 import json
 import os
+import queue
 import threading
 import time
 import webbrowser
@@ -23,6 +24,7 @@ from library.sql.main import check_and_create_database, insert_hub_info, query_h
 current_dir = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(current_dir, 'app.log')
 logSwitch = "true"
+log_queue = queue.Queue()
 debug= 'false'
 host=''
 database_file = "./db/data.db"
@@ -69,6 +71,28 @@ clients = {}
 # 用于通知主线程 GUI 已经成功创建的事件
 gui_created_event = threading.Event()
 gui=None
+
+def log_writer():
+    """
+    日志写入线程函数，从队列中取出日志数据并写入文件
+    """
+    while True:
+        log_data = log_queue.get()
+        if log_data is None:
+            break
+        first_log = log_data.pop('first_log')
+        if not first_log:
+            # 将日志数据写入文本文件，以追加模式
+            with codecs.open("server.log", "a", encoding='utf-8') as f:
+                json.dump(log_data, f, ensure_ascii=False)
+                f.write('\n')
+        else:
+            with codecs.open("server.log", "w", encoding='utf-8') as f:
+                json.dump(log_data, f, ensure_ascii=False)
+                f.write('\n')
+        log_queue.task_done()
+
+
 def log_event(event, result, remark=None, first_log=False):
     """
     记录日志并刷新 GUI 日志显示。
@@ -86,7 +110,8 @@ def log_event(event, result, remark=None, first_log=False):
             "timestamp": time.strftime("%H:%M:%S"),
             "event": event,
             "result": result,
-            "remark": remark
+            "remark": remark,
+            "first_log": first_log
         }
 
         # 在事件未成功时发送错误信息
@@ -94,20 +119,8 @@ def log_event(event, result, remark=None, first_log=False):
             # 使用字典的键直接访问
             send_message_to_client(f"服务器在执行{log_data['event']}时出错,严重等级{log_data['result']},备注信息{log_data['remark']}")
 
-        # 追加日志或覆盖日志
-        if not first_log:
-            # 将日志数据写入文本文件，以追加模式
-            with codecs.open("server.log", "a", encoding='utf-8') as f:
-                json.dump(log_data, f, ensure_ascii=False)
-                f.write('\n')
-        else:
-            with codecs.open("server.log", "w", encoding='utf-8') as f:
-                json.dump(log_data, f, ensure_ascii=False)
-                f.write('\n')
-
-    # 等待 GUI 初始化完成后再刷新日志
-    if gui_created_event.is_set() and gui:
-        gui.log_event(log_data)  # 刷新 GUI 日志
+        # 将日志数据放入队列
+        log_queue.put(log_data)
 
 
 
@@ -379,12 +392,17 @@ def print_info(host,port,elseinfo=''):
 def get_logs():
     try:
         if logSwitch.lower() == 'true':
+            logs = []
             with codecs.open('server.log', 'r', encoding='utf-8') as f:
-                logs = []
                 for line in f:
                     line = line.strip()
-                    data = json.loads(line)
-                    logs.append(data)
+                    try:
+                        data = json.loads(line)
+                        logs.append(data)
+                    except json.JSONDecodeError as e:
+                        # 记录解析失败的行和错误信息
+                        log_event('日志解析错误', 'error', f"Failed to parse line: '{line}', Error: {e}")
+                        continue
 
             # 使用 json.dumps 来确保返回 JSON 数据时不转义中文
             response_data = json.dumps(logs, ensure_ascii=False)
@@ -393,7 +411,7 @@ def get_logs():
             log_event('日志记录服务', 'warning', '前端尝试读取日志，但是被服务器拒绝')
             return jsonify({'message': '日志访问功能被拒绝，请尝试在配置文件开启日志查询服务。'})
     except Exception as e:
-        log_event('SERVER CANNOT READ LOGS','error',e)
+        log_event('SERVER CANNOT READ LOGS', 'error', e)
 
 def get_ssl_files_paths(ssh_path,key_ext='.key',crt_ext='.crt'):
     """
@@ -561,6 +579,10 @@ if __name__ == '__main__':
         flask_thread = threading.Thread(target=init)
         flask_thread.daemon = True
         flask_thread.start()
+        # 启动日志写入线程
+        writer_thread = threading.Thread(target=log_writer)
+        writer_thread.daemon = True
+        writer_thread.start()
         # 在主线程中运行 GUI
         run_gui()
     except Exception as e:
