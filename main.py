@@ -4,10 +4,11 @@ import glob
 import json
 import os
 import queue
+import sys
 import threading
 import time
 import webbrowser
-
+import argparse
 from flask import Flask, render_template
 from flask import request, jsonify, send_from_directory, Response  # 引入包中要使用的类
 from flask_cors import CORS
@@ -118,7 +119,9 @@ def log_event(event, result, remark=None, first_log=False):
         if result != 'successfully':
             # 使用字典的键直接访问
             send_message_to_client(f"服务器在执行{log_data['event']}时出错,严重等级{log_data['result']},备注信息{log_data['remark']}")
-
+        if gui is not None:
+            gui.log_event(log_data)
+            gui.refresh_GUI()
         # 将日志数据放入队列
         log_queue.put(log_data)
 
@@ -496,18 +499,24 @@ def handle_register(data):
 
 # 发送消息到指定客户端
 def send_message_to_client(message, client_uuid=None):
+    """发送消息到指定的客户端或广播给所有在线客户端"""
     try:
-        if client_uuid in clients:
-            sid = clients[client_uuid]
-            socketios.emit('new_message', {'message': message},to=sid)
-            print(f"消息已发送到客户端 {client_uuid}")
-        elif client_uuid is None:
-            socketios.emit('new_message', {'message': message})
-            print(f"消息已广播到所有已连接客户端")
+        if isinstance(client_uuid, str) and len(client_uuid) > 0:  # 确保 UUID 是字符串类型
+            if client_uuid in clients:
+                sid = clients[client_uuid]
+                socketios.emit('new_message', {'message': message}, to=sid)
+                print(f"消息已发送到客户端 {client_uuid}")
+            else:
+                print(f"未找到客户端 {client_uuid}")
+        elif client_uuid is None:  # 消息广播给所有在线客户端
+            for uuid, sid in clients.items():
+                socketios.emit('new_message', {'message': message}, to=sid)
+            print(f"消息已广播到 {len(clients)} 个客户端")
         else:
             print(f"未找到客户端 {client_uuid}")
     except Exception as e:
-        log_event('SERVER SEND MESSAGE FAILED', 'error', e)
+        log_event('SERVER SEND MESSAGE FAILED', 'error', str(e))
+        raise
 
 def init():
     #获取用户配置文件信息
@@ -571,20 +580,39 @@ def run_gui():
     finally:
         gui.stop()
 
-
-if __name__ == '__main__':
+def main(simulate=False):
     print("Server Starting...")
     # 创建并启动一个线程来运行 Flask 服务器
     try:
-        flask_thread = threading.Thread(target=init)
-        flask_thread.daemon = True
-        flask_thread.start()
         # 启动日志写入线程
         writer_thread = threading.Thread(target=log_writer)
         writer_thread.daemon = True
         writer_thread.start()
+
+        flask_thread = threading.Thread(target=init)
+        flask_thread.daemon = True
+        flask_thread.start()
         # 在主线程中运行 GUI
+
+        if simulate:
+            flask_thread = threading.Thread(target=run_gui)
+            flask_thread.daemon = True
+            flask_thread.start()
+
+            time.sleep(5)
+            print("Simulation complete. Exiting...")
+            return 0
         run_gui()
     except Exception as e:
         log_event('SERVER STATUS', 'error', e)
-    # init()
+        print('SERVER STATUS', 'error: => :', e)
+        return 1
+# init()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Start the server with optional simulation mode.")
+    parser.add_argument('--simulate', action='store_true', help="Simulate the startup process without running the GUI.")
+    args = parser.parse_args()
+
+    exit_code = main(simulate=args.simulate)
+    sys.exit(exit_code)
+

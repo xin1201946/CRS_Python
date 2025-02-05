@@ -88,7 +88,11 @@ def query_mold_info_by_number(db_file, mold_number):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM mold_info WHERE mold_number=?", (mold_number,))
     columns = [description[0] for description in cursor.description]
-    result = [columns]+cursor.fetchone()
+    row = cursor.fetchone()
+    if row is not None:
+        result = [columns] + [row]  # 把结果行也转换为列表
+    else:
+        result = [columns]  # 如果没有结果，仅返回列名
     conn.close()
     return result
 

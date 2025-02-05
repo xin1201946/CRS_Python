@@ -106,7 +106,7 @@ class ServerGUI:
 
     def log_event(self, log_data):
         with self.logs_lock:
-            self.logs.append(f"{log_data['timestamp']} - {log_data['event']} - {log_data['result']}")
+            self.logs.append(f"{log_data['timestamp']} - {log_data['event']} - {log_data['result']} - {log_data['remark']}")
 
     def stop(self):
         self.running.clear()
