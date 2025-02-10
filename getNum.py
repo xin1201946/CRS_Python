@@ -2,7 +2,7 @@ import library.clear_pic.main as clearp
 import library.get_num.NewMain as newNumV
 import os
 from PIL import Image
-
+from library.sql.main import insert_hub_info,check_and_create_database
 def get_pic(path):
     """
     使用get_pic(path[可省])后在调用其他函数！
@@ -32,12 +32,17 @@ def get_num(_,save_path='D:/hbsoftware/AIFlask/result/',save=False,save_name='')
     '''
     return newNumV.main(save_file=save,save_path=save_path,save_name=save_name,show_result=False)
 
-def quick_cut_img(path):
+def quick_cut_img(path,savepath):
+    if savepath is None:
+        return 'No SavePath?'
+    if not os.path.exists(savepath):
+        os.makedirs(savepath)
+        print(f"Save directory '{savepath}' does not exist. Created successfully.")
     for filename in os.listdir(path):
         # 构建完整的文件路径
         file_path = os.path.join(path, filename)
         print(file_path)
-        get_num(cut_pic(get_pic(file_path)),save=True,save_name=filename)
+        get_num(cut_pic(get_pic(file_path)),save=True,save_name=filename,save_path=savepath)
     return True
 
 def process_image(image_path, save_path=None):
@@ -50,11 +55,16 @@ def process_image(image_path, save_path=None):
         # 如果给定的是单个文件路径
         file_name = os.path.basename(image_path)
         result_text = get_num(image_path)
-        content_to_write = f"// This software uses YOLO V5, V11 for text recognition.\n--------------------------------------------------------------\n{file_name} - {result_text}\n"
+        content_to_write = f"{file_name} - {result_text}\n"
         if save_path:
             result_file_path = os.path.join(save_path, "result.txt")
             with open(result_file_path, "a", encoding="utf-8") as f:
                 f.write(content_to_write)
+        else:
+            print('未指定保存路径，将保存至数据库中')
+            check_and_create_database("./db/data.db")
+            insert_hub_info("./db/data.db",result_text)
+
         return content_to_write
     elif os.path.isdir(image_path):
         # 如果给定的是目录路径
@@ -64,15 +74,19 @@ def process_image(image_path, save_path=None):
                 file_full_path = os.path.join(root, file)
                 file_name = os.path.basename(file_full_path)
                 result_text = get_num(file_full_path)
-                single_content = f"// This software uses YOLO V5, V11 for text recognition.\n--------------------------------------------------------------\n{file_name} - {result_text}\n"
+                single_content = f"{file_name} - {result_text}\n"
                 all_content_to_write += single_content
                 if save_path:
                     result_file_path = os.path.join(save_path, "result.txt")
                     with open(result_file_path, "a", encoding="utf-8") as f:
                         f.write(single_content)
+                else:
+                    print('未指定保存路径，将保存至数据库中')
+                    check_and_create_database("./db/data.db")
+                    insert_hub_info("./db/data.db", result_text)
         return all_content_to_write
     else:
-        raise ValueError("给定的路径既不是有效的文件路径也不是有效的目录路径")
+        raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
 
 def auto_run(path: None):
     """

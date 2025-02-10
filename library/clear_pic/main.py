@@ -12,17 +12,18 @@ model = YOLOv5('./library/clear_pic/NumVision.pt')  # 加载自定义模型
 model.conf = 0.6  # 设置置信度阈值
 colors = plt.cm.get_cmap('tab10')(range(10))
 colors = (colors * 255).astype(int)
-def main(img):
-    '''
+def main(img,save_Path=None,filename=None):
+    """
     进行处理图片
     :param img: 二值化后的图像
+    :param save_Path:保存位置
     :return: 经过裁剪的图像
-    '''
-    imgs= process_image_file(img)
+    """
+    imgs= process_image_file(img,save_Path,filename)
     return imgs
 
 
-def crop_and_save(img, detections, save_dir='./cache/'):
+def crop_and_save(img, detections, save_dir='./cache/',filename='crop'):
     """
     将图像裁剪到模型识别到的区域，并保存到指定文件夹
 
@@ -38,7 +39,7 @@ def crop_and_save(img, detections, save_dir='./cache/'):
     cropped_img = img
     # 如果检测结果为空，则保存原图
     if not detections:
-        cv2.imwrite(os.path.join(save_dir, 'crop.jpg'), img)
+        cv2.imwrite(os.path.join(save_dir, f'{filename}.jpg'), img)
         return img
 
     # 裁剪并保存检测区域
@@ -46,7 +47,7 @@ def crop_and_save(img, detections, save_dir='./cache/'):
         x1, y1, x2, y2, _, _ = detection
         cropped_img = img[int(y1):int(y2), int(x1):int(x2)]
         # 保存裁剪图像
-        cv2.imwrite(os.path.join(save_dir, f'crop.jpg'), cropped_img)
+        cv2.imwrite(os.path.join(save_dir, f'{filename}.jpg'), cropped_img)
     return cropped_img
 
 
@@ -218,7 +219,7 @@ def process_image(cropped_img):
     return radiation_corrected_img
 
 
-def process_image_file(img_path):
+def process_image_file(img_path,save_Path,filename):
     img_np = np.array(img_path)
 
     # 调整图像大小（根据模型设置调整）
@@ -235,6 +236,8 @@ def process_image_file(img_path):
         label = f'{results.names[int(cls)]} {conf:.2f}'  # 使用 results.names 而不是 model.names
         color = (255, 0, 0)  # Red (adjust as needed)
         plot_one_box(xyxy, img, label=label, color=color, line_thickness=3)
-
-    imgs = crop_and_save(img, results.xyxy[0].tolist())
+    if save_Path is not None:
+        imgs = crop_and_save(img, results.xyxy[0].tolist(),save_Path,filename)
+    else:
+        imgs = crop_and_save(img, results.xyxy[0].tolist())
     return imgs

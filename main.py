@@ -9,18 +9,20 @@ import threading
 import time
 import webbrowser
 import argparse
-from flask import Flask, render_template
+from flask import Flask, render_template, g
 from flask import request, jsonify, send_from_directory, Response  # 引入包中要使用的类
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from rich.console import Console
 from werkzeug.serving import run_simple
-
+import shutil
+import getNum
 from getNum import auto_run
 from library.GUI.main import ServerGUI
 from library.sql import main as sql
 from library.sql.main import check_and_create_database, insert_hub_info, query_hub_info_by_mold_number, \
     query_mold_info_by_number, query_all_hub_info, execute_custom_sql
+from library.sys_info.main import send_sysInfo
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(current_dir, 'app.log')
@@ -44,6 +46,7 @@ API={
 # 定义命令列表
 commands = ["help", "blacklist", "sql", "server"]
 command_blacklist = ["drop table", "truncate", "delete from", "update"]
+sys_info={}
 def sql_help(_):
     help="""
     无拓展命令将直接执行操作
@@ -51,8 +54,8 @@ def sql_help(_):
     "--help": 帮助
     "--check_sql": 检查数据库，无参数
     "--insert": 要插入的模具编号
-    "--lun-gu-info-model": 要查询的模具编号
-    "--mo-ju-jinfo-model": 要查询的模具编号
+    "--lun-gu-info-model": 查询指定模具编号的识别记录
+    "--mo-ju-jinfo-model": 查询指定模具编号的模具信息
     "--query_all_hub_info": 快速无参查询
     "--execute_custom_sql": 执行自定义SQL语句（绕过黑名单）
     """
@@ -68,6 +71,7 @@ sql_command_map = {
 }
 mode="nomal"
 # 存储客户端的 UUID 和 socket ID 的映射关系
+clients_lock = threading.Lock()
 clients = {}
 # 用于通知主线程 GUI 已经成功创建的事件
 gui_created_event = threading.Event()
@@ -217,6 +221,7 @@ app = Flask(__name__, static_url_path='/', static_folder='./flask-dist', templat
 
 # 配置 Flask-SocketIO 允许跨域
 socketios = SocketIO(app, cors_allowed_origins="*")  # 允许所有来源
+
 
 def delete_files_in_folder(folder_path='./flask-dist/UPLOAD', filename=None):
   """删除指定文件夹下的所有文件或指定文件
@@ -482,20 +487,32 @@ def run_command():
 @socketios.on('register')
 def handle_register(data):
     try:
-        client_uuid = data['uuid']
+        with clients_lock:
+            client_uuid = data['uuid']
 
-        # 检查是否已经有该 UUID 的客户端，如果有，保留之前的 sid，否则新分配 sid
-        if client_uuid not in clients:
-            clients[client_uuid] = request.sid
-            print(f"客户端 {client_uuid} 注册，sid: {request.sid}")
-            gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
-        else:
-            print(f"客户端 {client_uuid} 已存在，sid: {clients[client_uuid]}")
-        # 向客户端发送注册成功的消息
-        send_message_to_client('客户端注册成功', client_uuid)
+            # 检查是否已经有该 UUID 的客户端，如果有，保留之前的 sid，否则新分配 sid
+            if client_uuid not in clients:
+                clients[client_uuid] = request.sid
+                print(f"客户端 {client_uuid} 注册，sid: {request.sid}")
+                gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
+            else:
+                print(f"客户端 {client_uuid} 已存在，sid: {clients[client_uuid]}")
+            # 向客户端发送注册成功的消息
+            send_message_to_client('客户端注册成功', client_uuid)
     except Exception as e:
         log_event('SERVER CANNOT SEND MESSAGE', 'error', e)
 
+@socketios.on('disconnect')
+def handle_disconnect():
+    uuid = None
+    # 查找断开连接的客户端的 uuid，并将其从 clients 中移除
+    for key, value in clients.items():
+        if value == request.sid:
+            uuid = key
+            break
+    if uuid:
+        del clients[uuid]  # 删除该客户端的连接信息
+    print(f"客户端 {uuid} 断开连接")
 
 # 发送消息到指定客户端
 def send_message_to_client(message, client_uuid=None):
@@ -579,40 +596,127 @@ def run_gui():
         print("Shutting down...")
     finally:
         gui.stop()
+def get_clients():
+    """获取当前的 clients 列表"""
+    with clients_lock:
+        return clients
 
-def main(simulate=False):
-    print("Server Starting...")
-    # 创建并启动一个线程来运行 Flask 服务器
-    try:
-        # 启动日志写入线程
-        writer_thread = threading.Thread(target=log_writer)
-        writer_thread.daemon = True
-        writer_thread.start()
 
-        flask_thread = threading.Thread(target=init)
-        flask_thread.daemon = True
-        flask_thread.start()
-        # 在主线程中运行 GUI
+# 主功能处理
+def main(args):
+    # 备份数据库
+    if args.COPYDATABASE:
+        source_path = './db/data.db'
+        destination_path = args.COPYDATABASE[0]
+        try:
+            if os.path.isdir(destination_path):
+                # 如果目标路径是目录，构造目标文件路径
+                destination_path = os.path.join(destination_path, os.path.basename(source_path))
+            shutil.copy(source_path, destination_path)
+            print(f"File copied successfully to {destination_path}")
+        except FileNotFoundError:
+            print(f"Source file not found: {source_path}")
+        except PermissionError:
+            print(f"Permission denied: {destination_path}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+    # 复制数据库
+    if args.LOADDATABASE:
+        source_path = './db/data.db'
+        destination_path = args.LOADDATABASE[0]
+        try:
+            if os.path.isdir(source_path):
+                print('You must specify the address of the database file, not the directory containing the database file')
+                return 0
+            shutil.copy(destination_path, source_path)
+            print(f"File copied successfully from {destination_path}")
+        except FileNotFoundError:
+            print(f"Source file not found: {source_path}")
+        except PermissionError:
+            print(f"Permission denied: {destination_path}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+    # 切割图片
+    if args.CUTIMAGEFROMDIR:
+        source_dir = args.CUTIMAGEFROMDIR[0]
+        save_dir = args.CUTIMAGEFROMDIR[1] if len(args.CUTIMAGEFROMDIR) > 1 else os.path.join(source_dir, 'Save')
+        print(f"Command: CUTIMAGEFROMDIR")
+        print(f"Source Directory: {source_dir}")
+        print(f"Save Directory: {save_dir}")
+        getNum.quick_cut_img(source_dir, save_dir)
 
-        if simulate:
-            flask_thread = threading.Thread(target=run_gui)
-            flask_thread.daemon = True
-            flask_thread.start()
+    # 处理图片
+    if args.PROCESSIMAGEDIR:
+        source_dir = args.PROCESSIMAGEDIR[0]
+        save_dir = args.PROCESSIMAGEDIR[1] if len(args.PROCESSIMAGEDIR) > 1 else None
+        print(f"Command: PROCESSIMAGEDIR")
+        print(f"Source Directory: {source_dir}")
+        print(f"Save Directory: {save_dir if save_dir else 'Not specified'}")
+        getNum.process_image(source_dir, save_dir)
 
-            time.sleep(5)
-            print("Simulation complete. Exiting...")
-            return 0
-        run_gui()
-    except Exception as e:
-        log_event('SERVER STATUS', 'error', e)
-        print('SERVER STATUS', 'error: => :', e)
-        return 1
-# init()
+
+    # 启动服务器
+    if not any([args.CUTIMAGEFROMDIR, args.PROCESSIMAGEDIR, args.COPYDATABASE,args.LOADDATABASE]):
+        print("Server Starting...")
+        try:
+            monitor_system_thread = threading.Thread(target=send_sysInfo, args=(socketios,get_clients,))  # 创建监控线程
+            monitor_system_thread.daemon = True  # 设置为守护线程，主线程退出时自动退出
+            monitor_system_thread.start()  # 启动监控线程
+
+            writer_thread = threading.Thread(target=log_writer, daemon=True)
+            writer_thread.daemon = True
+            writer_thread.start()
+
+            if not args.nogui:
+                flask_thread = threading.Thread(target=init, daemon=True)
+                flask_thread.daemon = True
+                flask_thread.start()
+            else:
+                init()
+                return 0
+
+            if args.simulate:
+                if not args.nogui:
+                    flask_gui = threading.Thread(target=run_gui, daemon=True)
+                    flask_gui.start()
+
+                time.sleep(5)
+                print("Simulation complete. Exiting...")
+                return 0
+            run_gui()
+
+        except Exception as e:
+            log_event('SERVER STATUS', 'error', e)
+            print(f'SERVER STATUS error: {e}')
+            return 1
+
+    return 0
+
+# 初始化参数解析器
+def create_parser():
+    parser = argparse.ArgumentParser(description="CCRS Tool")
+    parser.add_argument('--simulate', action='store_true',
+                        help="Simulate the startup process without running the GUI.")
+    parser.add_argument('--nogui', action='store_true',
+                        help="Start server without GUI.")
+    parser.add_argument('--CUTIMAGEFROMDIR', nargs='+', metavar=('SOURCE_DIR', 'SAVE_DIR'),
+                        help="Cut images from a directory.")
+    parser.add_argument('--PROCESSIMAGEDIR', nargs='+', metavar=('SOURCE_DIR', 'SAVE_DIR'),
+                        help="Process images in a directory.")
+    parser.add_argument('--COPYDATABASE', nargs='+', metavar='SAVE_DIR',
+                        help="Copy database from source to destination.")
+    parser.add_argument('--LOADDATABASE', nargs='+', metavar='Source_DIR',
+                        help="Copy the database from the source to the DATABASE directory and then use it the next time the program starts. Note: This operation overwrites the original database file!")
+    return parser
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Start the server with optional simulation mode.")
-    parser.add_argument('--simulate', action='store_true', help="Simulate the startup process without running the GUI.")
+    # 解析命令行参数
+    parser = create_parser()
     args = parser.parse_args()
 
-    exit_code = main(simulate=args.simulate)
+    # 调用主函数并传递参数
+    exit_code = main(args)
+
+    # 退出程序
     sys.exit(exit_code)
 

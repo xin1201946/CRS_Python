@@ -163,7 +163,7 @@ def main(save_path="./Out_PIC/", save_name='result.jpg', save_file=True, show_re
     cv2.putText(result_img, f"Conf: {confidence:.2f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     if save_file:
-        save_files(save_path, save_name, result_img)
+        save_files(save_path, save_name, cv2.resize(img, (448, 448)))
 
     if show_result:
         cv2.imshow('Recognition Result', result_img)

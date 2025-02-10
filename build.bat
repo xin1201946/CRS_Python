@@ -10,7 +10,7 @@ if not exist ".\.venv\Scripts\python.exe" (
 )
 
 :: 构建程序
-".\.venv\Scripts\python.exe" -m nuitka --standalone --follow-imports --output-dir=.\dist --enable-plugin=no-qt --include-module=yolov5 --include-module=ultralytics --include-module=tensorflow --module-parameter=torch-disable-jit=yes --windows-icon-from-ico=.\CCRS.ico --windows-product-name="CCRS" --windows-file-description="Casting Char Recognition System" --product-version=2.0.0 --file-version=2.0.2 main.py
+".\.venv\Scripts\python.exe" -m nuitka --standalone --follow-imports --output-dir=.\dist --enable-plugin=no-qt --include-module=yolov5 --include-module=ultralytics --include-module=tensorflow --module-parameter=torch-disable-jit=yes --windows-icon-from-ico=.\CCRS.ico --windows-product-name="CCRS" --windows-file-description="Casting Char Recognition System" --product-version=2.0.0 --file-version=2.0.2 --output-filename=CCRS main.py
 
 cls
 
@@ -33,14 +33,12 @@ copy ".\getNum.py" ".\dist\main.dist\getNum.py" /Y
 xcopy ".\flask-dist" ".\dist\main.dist\flask-dist" /E /I /Y
 
 cls
-:: 重命名操作
-ren .\dist\main.dist\main.exe  .\dist\main.dist\CCRS.exe
 echo 最后步骤完成
 echo.
 echo 准备启动中...
 
 :: 启动程序
-.\dist\main.dist\CCRS.exe --simulate
+.\dist\main.dist\CCRS.exe --simulate --nogui
 
 if errorlevel 1 (
     echo 程序启动失败，返回错误信息！

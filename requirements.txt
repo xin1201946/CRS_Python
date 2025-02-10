@@ -2,7 +2,7 @@ matplotlib
 numpy
 opencv-python
 pillow
-psutil~=6.1.0
+psutil
 PyYAML>=5.3.1
 requests>=2.32.2
 scipy>=1.4.1
@@ -22,3 +22,4 @@ tensorflow~=2.18.0
 python-socketio~=5.12.0
 yolov5
 Flask-SocketIO
+GPUtil
