@@ -3,49 +3,49 @@
   "name": "智能铸造字识别系统",
   "icons": [
     {
-      "src": "64x64.ico",
+      "src": "64x64.wbep",
       "sizes": "64x64",
-      "type": "image/x-icon"
+      "type": "image/wbep"
 
     },
     {
-      "src": "32x32.png",
+      "src": "32x32.wbep",
       "sizes": "32x32",
-      "type": "image/png"
+      "type": "image/wbep"
     },
     {
-      "src": "24x24.png",
+      "src": "24x24.wbep",
       "sizes": "24x24",
-      "type": "image/png"
+      "type": "image/wbep"
 
     },
     {
-      "src": "16x16.png",
+      "src": "16x16.wbep",
       "sizes": "16x16",
-      "type": "image/png"
+      "type": "image/wbep"
 
     },
     {
-      "src": "512x512.png",
+      "src": "512x512.wbep",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/wbep"
 
     },
     {
-      "src": "192x192.png",
+      "src": "192x192.wbep",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/wbep"
 
     }
   ],
   "screenshots": [
     {
-      "src": "PC.png",
+      "src": "PC.wbep",
       "form_factor": "wide",
       "sizes": "1865x878"
     },
     {
-      "src": "Phone.png",
+      "src": "Phone.wbep",
       "sizes": "355x785"
     }
   ],

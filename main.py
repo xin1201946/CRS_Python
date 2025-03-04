@@ -9,20 +9,16 @@ import threading
 import time
 import webbrowser
 import argparse
+
 from flask import Flask, render_template, g
 from flask import request, jsonify, send_from_directory, Response  # 引入包中要使用的类
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from rich.console import Console
-from werkzeug.serving import run_simple
 import shutil
 import getNum
-from getNum import auto_run
-from library.GUI.main import ServerGUI
-from library.sql import main as sql
-from library.sql.main import check_and_create_database, insert_hub_info, query_hub_info_by_mold_number, \
-    query_mold_info_by_number, query_all_hub_info, execute_custom_sql
-from library.sys_info.main import send_sysInfo
+from CCRS_Library import ServerGUI, check_and_create_database, insert_hub_info, \
+    query_hub_info_by_mold_number, query_mold_info_by_number, query_all_hub_info, execute_custom_sql,flask_send_sysInfo
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(current_dir, 'app.log')
@@ -286,7 +282,7 @@ def execute_sql(command):
             except Exception as e:
                 log_event('SQL service', 'error',f'{str(e)}')
                 return jsonify(f"命令执行失败: {str(e)}")
-    return jsonify(sql.execute_custom_sql(database_file, command))
+    return jsonify(execute_custom_sql(database_file, command))
 
 @app.route('/')
 def mainPage():
@@ -334,7 +330,8 @@ def getpic():
 
 @app.route(f'/{API["start"]}', methods=['GET', 'POST'])
 def start():
-    text= auto_run(None)
+    # text= auto_run(None)
+    text= getNum.New_auto_run(None)
     delete_files_in_folder('./cache/')
     log_event('OCR Service', 'successfully',text)
     insert_hub_info(db_file=database_file,mold_number=text)
@@ -451,7 +448,7 @@ def get_ssl_files_paths(ssh_path,key_ext='.key',crt_ext='.crt'):
     return key_file_path, crt_file_path
 @app.route('/getdatabase')
 def get_database():
-    hub_info_results = sql.query_all_hub_info(database_file)
+    hub_info_results = query_all_hub_info(database_file)
     return jsonify({'result': hub_info_results}),200
 @app.route('/command',methods=['GET','POST'])
 def run_command():
@@ -477,7 +474,6 @@ def run_command():
             elif "exit" in command.lower():
                 return jsonify('已返回正常模式')
             else:
-                log_event('Error Command','error',command)
                 return jsonify("无效的命令，请输入有效的命令。")
     except Exception as e:
         log_event('SERVER CANNOT RUN COMMAND', 'warning', e)
@@ -539,12 +535,12 @@ def init():
     #获取用户配置文件信息
     global host,port,UPLOAD_FOLDER,API,debug,logSwitch,gui,use_https
     log_event('设置读取服务','successfully',first_log=True)
-    sql.check_and_create_database(database_file)
+    check_and_create_database(database_file)
     host = config_manager.get_with_default('Settings', 'host','127.0.0.1')
     logSwitch=config_manager.get_with_default('Settings', 'logSwitch','true')
     port = config_manager.get_with_default('Settings', 'port','5000')
     debug = config_manager.get_with_default('Settings', 'debug','false')
-    use_https=False if config_manager.get_with_default('SSH_Service', 'use_https','false') else True
+    use_https=False if config_manager.get_with_default('SSH_Service', 'use_https','false').lower()=='false' else True
     ssh_key,ssh_crt  = get_ssl_files_paths(config_manager.get_with_default('SSH_Service', 'ssh_path','./CRT'))
     if config_manager.get_with_default('API_Service', 'USE_OPTIONS', 'false') == 'true':
         API['isHTTPS'] = config_manager.get_with_default('API_Service', 'isHTTPS', 'isHTTPS')
@@ -560,25 +556,32 @@ def init():
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     delete_files_in_folder()
-    print_info(host,port,'看起来你支持HTTPS服务，你可以随时开启它！' if ssh_key !='' and ssh_crt!='' else '启动成功！')
-    log_event('设置读取服务','successfully','看起来你支持HTTPS服务，你可以随时开启它！')
+    if ssh_key != '' and ssh_crt != '':
+        if use_https:
+            log_event('设置读取服务', 'successfully', '已启动HTTPS进程！')
+        else:
+            log_event('设置读取服务', 'successfully', '看起来你支持HTTPS服务，你可以随时开启它！')
+    else:
+        log_event('设置读取服务', 'successfully', '启动成功！')
     log_event('SERVER START SUCCESS', 'successfully', '启动成功')
     console.print('')
     CORS(app)
 
     if use_https:
-        print("HTTPS服务器暂不支持[消息注册]服务以及端口定制,将默认占用443端口.")
-        context = (f'{ssh_crt}/cert.crt', f'{ssh_key}/key.key')
-        run_simple(host, 443, app, ssl_context=context)
+        print("HTTPS服务器将占用443端口")
+        context = (f'{ssh_crt}', f'{ssh_key}')
+        socketios.run(debug=True if debug == 'true' else False, host=host, port=443, app=app,
+                      allow_unsafe_werkzeug=True,ssl_context=context)
     else:
-        socketios.run(debug= True if debug == 'true' else False,host=host, port=int(port), app=app, allow_unsafe_werkzeug=True)
+        socketios.run(debug= True if debug == 'true' else False,host=host, port=int(port),
+                      app=app, allow_unsafe_werkzeug=True)
 def run_gui():
     """ 启动 GUI 界面 """
     global gui
     host = config_manager.get_with_default('Settings', 'host', '127.0.0.1')
     logSwitch = config_manager.get_with_default('Settings', 'logSwitch', 'true')
     port = config_manager.get_with_default('Settings', 'port', '5000')
-    use_https = False if config_manager.get_with_default('SSH_Service', 'use_https', 'false') else True
+    use_https=False if config_manager.get_with_default('SSH_Service', 'use_https','false').lower()=='false' else True
 
     # 创建 GUI 实例
     gui = ServerGUI(
@@ -586,7 +589,8 @@ def run_gui():
         use_https=use_https,
         ssh_path=config_manager.get_with_default('SSH_Service', 'ssh_path', './CRT'),
         AdvanceAPISetting=config_manager.get_with_default('API_Service', 'USE_OPTIONS', 'false') == 'true',
-        logSwitch=logSwitch
+        logSwitch=logSwitch,
+        client_func=get_clients
     )
     gui_created_event.set()
 
@@ -596,6 +600,7 @@ def run_gui():
         print("Shutting down...")
     finally:
         gui.stop()
+
 def get_clients():
     """获取当前的 clients 列表"""
     with clients_lock:
@@ -659,7 +664,7 @@ def main(args):
     if not any([args.CUTIMAGEFROMDIR, args.PROCESSIMAGEDIR, args.COPYDATABASE,args.LOADDATABASE]):
         print("Server Starting...")
         try:
-            monitor_system_thread = threading.Thread(target=send_sysInfo, args=(socketios,get_clients,))  # 创建监控线程
+            monitor_system_thread = threading.Thread(target=flask_send_sysInfo, args=(socketios,get_clients,))  # 创建监控线程
             monitor_system_thread.daemon = True  # 设置为守护线程，主线程退出时自动退出
             monitor_system_thread.start()  # 启动监控线程
 
@@ -679,10 +684,9 @@ def main(args):
                 if not args.nogui:
                     flask_gui = threading.Thread(target=run_gui, daemon=True)
                     flask_gui.start()
-
                 time.sleep(5)
                 print("Simulation complete. Exiting...")
-                return 0
+                exit(0)
             run_gui()
 
         except Exception as e:

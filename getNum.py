@@ -1,8 +1,9 @@
-import library.clear_pic.main as clearp
-import library.get_num.NewMain as newNumV
+
+from CCRS_Library import (clear_pic as clearp,get_num as newNumV,insert_hub_info,
+                          check_and_create_database,new_clear_pic)
 import os
 from PIL import Image
-from library.sql.main import insert_hub_info,check_and_create_database
+
 def get_pic(path):
     """
     使用get_pic(path[可省])后在调用其他函数！
@@ -15,22 +16,20 @@ def get_pic(path):
     bw_img = img.convert('L')  #灰度图像
     return bw_img
 
-
 def cut_pic(img):
     '''
     使用剪切模型定位数字区域
     :param img: 经过二值化的图像
     :return: 裁剪后的图像
     '''
-    return clearp.main(img)
+    return clearp(img)
 
-
-def get_num(_,save_path='D:/hbsoftware/AIFlask/result/',save=False,save_name='') -> str:
-    '''
+def get_num(_,save_path='D:/hbsoftware/AIFlask/result/',save=False,save_name='',load_imagePath=None) -> str:
+    """
     使用模型获取数值
     :return: 数字文本 (str)
-    '''
-    return newNumV.main(save_file=save,save_path=save_path,save_name=save_name,show_result=False)
+    """
+    return newNumV(save_file=save,save_path=save_path,save_name=save_name,show_result=False,load_imagePath=load_imagePath)
 
 def quick_cut_img(path,savepath):
     if savepath is None:
@@ -88,10 +87,12 @@ def process_image(image_path, save_path=None):
     else:
         raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
 
-def auto_run(path: None):
+def New_auto_run(path: None):
     """
     一键调用
     :param path: 图像路径，可为空
     :return: 数字文本 (str)
     """
-    return get_num(cut_pic(get_pic(path)))
+    img,paths=new_clear_pic(get_pic(path))
+    print(paths[0])
+    return get_num(img,load_imagePath=paths[0])
