@@ -37,22 +37,22 @@ jobs:
 
       - name: 编译项目
         run: |
-          python -m nuitka ^
-            --standalone ^
-            --follow-imports ^
-            --nofollow-import-to=IPython ^
-            --output-dir=dist ^
-            --enable-plugin=no-qt ^
-            --include-module=ultralytics ^
-            --include-module=CCRS_Library ^
-            --include-module=tensorflow ^
-            --module-parameter=torch-disable-jit=no ^
-            --windows-icon-from-ico=CCRS.ico ^
-            --windows-product-name="CCRS" ^
-            --windows-file-description="Casting Char Recognition System" ^
-            --product-version=2.0.5 ^
-            --file-version=2.0.5 ^
-            --output-filename=CCRS ^
+          python -m nuitka ;
+            --standalone ;
+            --follow-imports ;
+            --nofollow-import-to=IPython ;
+            --output-dir=dist ;
+            --enable-plugin=no-qt ;
+            --include-module=ultralytics ;
+            --include-module=CCRS_Library ;
+            --include-module=tensorflow ;
+            --module-parameter=torch-disable-jit=no ;
+            --windows-icon-from-ico=CCRS.ico ;
+            --windows-product-name="CCRS" ;
+            --windows-file-description="Casting Char Recognition System" ;
+            --product-version=2.0.5 ;
+            --file-version=2.0.5 ;
+            --output-filename=CCRS ;
             main.py
 
       - name: 复制额外依赖
@@ -118,7 +118,7 @@ jobs:
             - 自动编译 & 打包
             - Nuitka 生成的可执行文件
             - 依赖库已打包，无需单独安装
-
+            基于 CCRS 内核 ${{ env.KERNEL_VERSION }} 编译
             **⚠ 注意:** 运行时仍需 `torch` 和 `tensorflow` 的兼容 DLL
           draft: false
           prerelease: false
