@@ -35,25 +35,22 @@ jobs:
         run: |
           python -m pip install -r requirements.txt
 
+      - name: 查找并获取内核版本
+        id: get_kernel_version
+        run: |
+          $whlFile = Get-ChildItem -Path . -Filter "CCRS_Library*.whl" | Select-Object -ExpandProperty Name
+          if ($whlFile -match "CCRS_Library-(\d+\.\d+\.\d+).whl") {
+            echo "KERNEL_VERSION=$matches[1]" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            echo "未找到 CCRS_Library.whl" && exit 1
+          }
+        shell: pwsh
+
       - name: 编译项目
         run: |
-          python -m nuitka ;
-            --standalone ;
-            --follow-imports ;
-            --nofollow-import-to=IPython ;
-            --output-dir=dist ;
-            --enable-plugin=no-qt ;
-            --include-module=ultralytics ;
-            --include-module=CCRS_Library ;
-            --include-module=tensorflow ;
-            --module-parameter=torch-disable-jit=no ;
-            --windows-icon-from-ico=CCRS.ico ; 
-            --windows-product-name="CCRS" ;
-            --windows-file-description="Casting Char Recognition System" ;
-            --product-version=2.0.5 ;
-            --file-version=2.0.5 ;
-            --output-filename=CCRS ;
-            main.py
+          echo "开始构建程序..."
+          python -m nuitka --standalone --follow-imports --output-dir=./dist --enable-plugin=no-qt --include-module=ultralytics --include-module=CCRS_Library --include-module=tensorflow --windows-icon-from-ico=./CCRS.ico --windows-product-name="CCRS" --windows-file-description="Casting Char Recognition System" --product-version=${{ env.KERNEL_VERSION }} --file-version=${{ env.KERNEL_VERSION }} --output-filename=CCRS main.py
+
 
       - name: 复制额外依赖
         run: |
