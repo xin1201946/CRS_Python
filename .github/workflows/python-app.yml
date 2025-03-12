@@ -28,7 +28,7 @@ jobs:
           python -m pip install nuitka
 
       - name: 安装 CCRS_Library 依赖
-        run: python -m pip install ./CCRS_Library.whl || echo "忽略 PIP 找不到 CCRS_Library 的错误"
+        run: python -m pip install D:\a\CRS_Python\CRS_Python\CCRS_Library.whl || echo "忽略 PIP 找不到 CCRS_Library 的错误"
 
       - name: 安装项目依赖
         run: |
