@@ -14,6 +14,9 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      - name: 检查仓库内容
+        run: dir
+
       - name: 设置 Python 3.11
         uses: actions/setup-python@v4
         with:
