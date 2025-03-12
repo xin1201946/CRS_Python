@@ -25,4 +25,5 @@ Flask-SocketIO~=5.5.1
 GPUtil
 wifi
 speedtest-cli
-CCRS_Library~=2.0.5.4
+CCRS_Library~=2.0.5.7
+eventlet~=0.39.0

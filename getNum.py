@@ -1,6 +1,6 @@
 
-from CCRS_Library import (clear_pic as clearp,get_num as newNumV,insert_hub_info,
-                          check_and_create_database,new_clear_pic)
+from CCRS_Library import (new_clear_pic as clearp,get_num_obb as newNumV,insert_hub_info,
+                          check_and_create_database)
 import os
 from PIL import Image
 
@@ -29,7 +29,7 @@ def get_num(_,save_path='D:/hbsoftware/AIFlask/result/',save=False,save_name='',
     使用模型获取数值
     :return: 数字文本 (str)
     """
-    return newNumV(save_file=save,save_path=save_path,save_name=save_name,show_result=False,load_imagePath=load_imagePath)
+    return newNumV(save_file=save,save_path=save_path,save_name=save_name,show_result=True,load_imagePath=load_imagePath)
 
 def quick_cut_img(path,savepath):
     if savepath is None:
@@ -93,6 +93,6 @@ def New_auto_run(path: None):
     :param path: 图像路径，可为空
     :return: 数字文本 (str)
     """
-    img,paths=new_clear_pic(get_pic(path))
+    img,paths=clearp(get_pic(path))
     print(paths[0])
     return get_num(img,load_imagePath=paths[0])
