@@ -42,7 +42,8 @@ jobs:
           if ($whlFile -match "CCRS_Library-(\d+\.\d+\.\d+).whl") {
             echo "KERNEL_VERSION=$matches[1]" | Out-File -FilePath $env:GITHUB_ENV -Append
           } else {
-            echo "未找到 CCRS_Library.whl" && exit 1
+            echo "未找到 CCRS_Library.whl" 
+            exit 1
           }
         shell: pwsh
 
