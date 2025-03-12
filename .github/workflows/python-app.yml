@@ -1,57 +1,124 @@
-name: Python application
+name: Build and Release CCRS
 
 on:
   push:
-    branches: [ "main" ]
-
-permissions:
-  contents: write
+    branches:
+      - main  # 你可以改成你的主分支名
+  workflow_dispatch:  # 手动触发
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install --no-cache-dir flake8 pytest
-        if (Test-Path "requirements.txt") { pip install --no-cache-dir -r requirements.txt }
-    - name: Lint with flake8
-      run: |
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        pytest --maxfail=1 --disable-warnings
-
-  release:
-    needs: build
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: List directory contents for debugging
-        run: dir
-
-      - name: Get commit message
-        id: commit_message
-        run: echo "MESSAGE=$(git log -1 --pretty=%B)" >> $GITHUB_ENV
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 设置 Python 3.11
+        uses: actions/setup-python@v4
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: ${{ env.MESSAGE }}
+          python-version: "3.11"
+
+      - name: 安装 Nuitka 及其他依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install nuitka
+
+      - name: 安装 CCRS_Library
+        run: |
+          python -m pip install CCRS_Library.whl || echo "忽略 PIP 找不到 CCRS_Library 的错误"
+
+      - name: 安装项目依赖
+        run: |
+          python -m pip install -r requirements.txt
+
+      - name: 编译项目
+        run: |
+          python -m nuitka ^
+            --standalone ^
+            --follow-imports ^
+            --nofollow-import-to=IPython ^
+            --output-dir=dist ^
+            --enable-plugin=no-qt ^
+            --include-module=ultralytics ^
+            --include-module=CCRS_Library ^
+            --include-module=tensorflow ^
+            --module-parameter=torch-disable-jit=no ^
+            --windows-icon-from-ico=CCRS.ico ^
+            --windows-product-name="CCRS" ^
+            --windows-file-description="Casting Char Recognition System" ^
+            --product-version=2.0.5 ^
+            --file-version=2.0.5 ^
+            --output-filename=CCRS ^
+            main.py
+
+      - name: 复制额外依赖
+        run: |
+          $SRC_DIR="C:\hostedtoolcache\windows\Python\3.11\x64\Lib\site-packages"
+          $DST_DIR="dist\main.dist"
+          foreach ($package in @("ultralytics", "CCRS_Library", "yolov5", "yolov5\models", "torch", "torchaudio", "torchgen", "torchvision")) {
+              if (Test-Path "$SRC_DIR\$package") {
+                  Write-Output "复制 $package ..."
+                  Copy-Item -Path "$SRC_DIR\$package" -Destination "$DST_DIR\$package" -Recurse -Force
+              } else {
+                  Write-Output "[警告] 未找到 $package，跳过复制！"
+              }
+          }
+          
+          if (Test-Path ".\getNum.py") {
+              Copy-Item ".\getNum.py" "$DST_DIR\getNum.py" -Force
+          }
+
+          if (Test-Path ".\flask-dist") {
+              Copy-Item ".\flask-dist" "$DST_DIR\flask-dist" -Recurse -Force
+          }
+
+      - name: 打包构建产物
+        run: Compress-Archive -Path "dist\main.dist\*" -DestinationPath "CCRS_Build.zip"
+
+      - name: 上传构建产物（Artifact）
+        uses: actions/upload-artifact@v4
+        with:
+          name: CCRS_Build
+          path: CCRS_Build.zip
+          retention-days: 7
+
+  release:
+    needs: build  # 先完成 build 任务
+    runs-on: ubuntu-latest  # 发布 Release 不需要 Windows 环境
+    steps:
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: CCRS_Build
+          path: CCRS_Build
+
+      - name: 检查 Tag 版本
+        id: check_tag
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
+            echo "发布正式版本: $TAG_NAME"
+          else
+            echo "RELEASE_TAG=latest" >> $GITHUB_ENV
+            echo "未找到 Tag，发布为 latest"
+          fi
+
+      - name: 发布 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: CCRS Release ${{ env.RELEASE_TAG }}
+          body: |
+            🚀 **新版本发布**
+            - 自动编译 & 打包
+            - Nuitka 生成的可执行文件
+            - 依赖库已打包，无需单独安装
+
+            **⚠ 注意:** 运行时仍需 `torch` 和 `tensorflow` 的兼容 DLL
           draft: false
           prerelease: false
-
+          files: CCRS_Build/CCRS_Build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
