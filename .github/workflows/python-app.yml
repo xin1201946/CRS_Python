@@ -29,7 +29,7 @@ jobs:
           python -m pip install nuitka
 
       - name: 安装 CCRS_Library 依赖
-        run: python -m pip install ./CCRS_Library*.whl
+        run: python -m pip install ./CCRS_Library-2.0.5.14-py3-none-any.whl
 
       - name: 安装项目依赖
         run: |
@@ -47,7 +47,7 @@ jobs:
             --include-module=CCRS_Library ;
             --include-module=tensorflow ;
             --module-parameter=torch-disable-jit=no ;
-            --windows-icon-from-ico=CCRS.ico ;
+            --windows-icon-from-ico=CCRS.ico ; 
             --windows-product-name="CCRS" ;
             --windows-file-description="Casting Char Recognition System" ;
             --product-version=2.0.5 ;
