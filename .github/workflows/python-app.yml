@@ -52,8 +52,34 @@ jobs:
             Write-Error "版本号格式不正确，期望 vX.Y.Z 格式"
             exit 1
           }
-          $tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
-          $content = "VSVersionInfo(`n  ffi=0x0400,`n  version=$tuple,`n  struc_version=(0, 0, 0, 0),`n  filetype=0x1,`n  subtype=0x0,`n  flags=0x0,`n  OS=0x4,`n  filedate=(0, 0),`n  company_name=`"Your Company`",`n  product_name=`"CCRS`",`n  product_version=`"$($env:LATEST_TAG)`",`n  file_description=`"Casting Char Recognition System`",`n  legal_copyright=`"Copyright (C) 2025 Your Company`",`n  original_filename=`"CCRS.exe`",`n  internal_name=`"CCRS`"`n)"
+          $version_tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
+          $content = @"
+          VSVersionInfo(
+            ffi=0x0,
+            filevers=$version_tuple,
+            prodvers=$version_tuple,
+            mask=0x3f,
+            flags=0x0,
+            OS=0x40004,
+            fileType=0x1,
+            subtype=0x0,
+            date=(0, 0)
+          )
+          StringFileInfo(
+            StringTable('040904B0',
+              CompanyName='Your Company',
+              FileDescription='Casting Char Recognition System',
+              FileVersion='$($env:LATEST_TAG)',
+              InternalName='CCRS',
+              LegalCopyright='Copyright (C) 2025 Your Company',
+              OriginalFilename='CCRS.exe',
+              ProductName='CCRS',
+              ProductVersion='$($env:LATEST_TAG)')
+          )
+          VarFileInfo(
+            Translation(0x0409, 1200)
+          )
+          "@
           $content | Out-File version_info.txt -Encoding utf8
           Get-Content version_info.txt  # 调试输出
 
