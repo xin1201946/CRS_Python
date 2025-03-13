@@ -6,17 +6,13 @@
 ├── cache/
 │   └── crop.jpg
 ├── flask/
-├── library/
-│   ├── clear_pic
-│   ├── get_num
-│   ├── yolo
-│   └── __init__.py
 ├── flask-dist/
 │   ├── assets
 │   ├── UPLOAD
 │   ├── vite.svg
 │   └── index.html
 ├── requirements.txt
+├── CCRS_Library-*.whl (打包完毕的依赖库)
 ├── getNum.py
 └── main.py
 ```
@@ -25,16 +21,8 @@
 |------------|-----------|
 | cache      | 剪裁后数字区域图片 |
 | flask      | 可删除，不影响使用 |
-| library    | 前置运行库     |
 | flask-dist | 前端界面      |
 
-## 模型介绍
-该程序采用双模型辅助识别，模型数据如下:
-
-| 模型名          | 路径                  |
-|--------------|---------------------|
-| NumVision.pt | /library/clear_pic/ |
-| best.pt      | /library/get_num/   |
 
 ## 运行结构
 ### 大致过程
@@ -52,7 +40,10 @@ flowchart LR
     G --> H{调用library/get_num/main.py}
     H --> I{读取数字}
     I --> J{处理文本}
-    J --> T
+    J --> H{返回识别结果并保存至数据库}
 ```
+
+## 注意
+自2.0.0开始，我们将模型及依赖库整合为CCRS_Library包，且不再开源
 
 
