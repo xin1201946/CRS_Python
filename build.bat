@@ -1,16 +1,16 @@
 @echo off
 
-echo ÕýÔÚ³¢ÊÔ¹¹½¨...
+echo æ­£åœ¨å°è¯•æž„å»º...
 echo.
 
-:: ¼ì²éÐéÄâ»·¾³ÊÇ·ñ´æÔÚ
+:: æ£€æŸ¥è™šæ‹ŸçŽ¯å¢ƒæ˜¯å¦å­˜åœ¨
 if not exist ".\.venv\Scripts\python.exe" (
-    echo [´íÎó] ÐéÄâ»·¾³²»´æÔÚ£¬ÇëÏÈ´´½¨ÐéÄâ»·¾³£¡
+    echo [é”™è¯¯] è™šæ‹ŸçŽ¯å¢ƒä¸å­˜åœ¨ï¼Œè¯·å…ˆåˆ›å»ºè™šæ‹ŸçŽ¯å¢ƒï¼
     pause
     exit /b
 )
 
-:: ¹¹½¨³ÌÐò
+:: æž„å»ºç¨‹åº
 ".\.venv\Scripts\python.exe" -m nuitka ^
     --standalone ^
     --follow-imports ^
@@ -29,24 +29,24 @@ if not exist ".\.venv\Scripts\python.exe" (
     --output-filename=CCRS ^
     main.py 
 
-echo ¹¹½¨Íê³É£¡
+echo æž„å»ºå®Œæˆï¼
 echo.
-echo ½øÐÐ×îºóµÄÎÄ¼þ¸´ÖÆ...
-echo Çë²»Òª¹Ø±Õ´°¿Ú
-:: ¸´ÖÆ Python ÒÀÀµÎÄ¼þ¼Ð
+echo è¿›è¡Œæœ€åŽçš„æ–‡ä»¶å¤åˆ¶...
+echo è¯·ä¸è¦å…³é—­çª—å£
+:: å¤åˆ¶ Python ä¾èµ–æ–‡ä»¶å¤¹
 set SRC_DIR=.venv\Lib\site-packages
 set DST_DIR=.\dist\main.dist
 
 for %%D in (ultralytics CCRS_Library yolov5 yolov5\models torch torchaudio torchgen torchvision) do (
     if exist "%SRC_DIR%\%%D" (
-        echo ¸´ÖÆ %%D ...
+        echo å¤åˆ¶ %%D ...
         xcopy "%SRC_DIR%\%%D" "%DST_DIR%\%%D" /E /I /Y >nul
     ) else (
-        echo [¾¯¸æ] Î´ÕÒµ½ %SRC_DIR%\%%D£¬Ìø¹ý¸´ÖÆ£¡
+        echo [è­¦å‘Š] æœªæ‰¾åˆ° %SRC_DIR%\%%Dï¼Œè·³è¿‡å¤åˆ¶ï¼
     )
 )
 
-:: ¸´ÖÆ¶ÀÁ¢ÎÄ¼þ
+:: å¤åˆ¶ç‹¬ç«‹æ–‡ä»¶
 if exist ".\getNum.py" (
     copy ".\getNum.py" "%DST_DIR%\getNum.py" /Y >nul
 )
@@ -55,17 +55,17 @@ if exist ".\flask-dist" (
     xcopy ".\flask-dist" "%DST_DIR%\flask-dist" /E /I /Y >nul
 )
 
-echo ×îºó²½ÖèÍê³É£¡
+echo æœ€åŽæ­¥éª¤å®Œæˆï¼
 echo.
-echo ×¼±¸Æô¶¯ CCRS...
+echo å‡†å¤‡å¯åŠ¨ CCRS...
 
-:: Æô¶¯³ÌÐò
+:: å¯åŠ¨ç¨‹åº
 "%DST_DIR%\CCRS.exe" --simulate
 
 if errorlevel 1 (
-    echo [´íÎó] ³ÌÐòÆô¶¯Ê§°Ü£¡
+    echo [é”™è¯¯] ç¨‹åºå¯åŠ¨å¤±è´¥ï¼
 ) else (
-    echo [³É¹¦] ³ÌÐòÕý³£Æô¶¯£¡
+    echo [æˆåŠŸ] ç¨‹åºæ­£å¸¸å¯åŠ¨ï¼
 )
 
 pause
