@@ -57,23 +57,24 @@ jobs:
           # UTF-8 encoded version info
           VSVersionInfo(
           ffi=0x0400,
-          filevers=$tuple,
-          prodvers=$tuple,
+          FileVersion=$tuple,
+          ProductVersion=$tuple,
           struc_version=(0, 0, 0, 0),
           filetype=0x1,
           subtype=0x0,
           flags=0x0,
           OS=0x4,
           filedate=(0, 0),
-          company_name="Your Company",
+          company_name="林间追风",
           product_name="CCRS",
-          product_version="$($env:LATEST_TAG)",
+          product_version="$($env.LATEST_TAG)",
           file_description="Casting Char Recognition System",
-          legal_copyright="Copyright (C) 2025 Your Company",
+          legal_copyright="Copyright (C) 2025 林间追风",
           original_filename="CCRS.exe",
           internal_name="CCRS"
           )
           "@ | Out-File version_info.txt -Encoding utf8
+          
 
       - name: 编译项目
         run: |
