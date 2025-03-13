@@ -29,7 +29,7 @@ def get_num(_,save_path='D:/hbsoftware/AIFlask/result/',save=False,save_name='',
     使用模型获取数值
     :return: 数字文本 (str)
     """
-    return newNumV(save_file=save,save_path=save_path,save_name=save_name,show_result=True,load_imagePath=load_imagePath)
+    return newNumV(save_file=save,save_path=save_path,save_name=save_name,show_result=False,load_imagePath=load_imagePath)
 
 def quick_cut_img(path,savepath):
     if savepath is None:
