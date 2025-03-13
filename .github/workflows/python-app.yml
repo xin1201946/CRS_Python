@@ -74,6 +74,19 @@ jobs:
         id: get_tag
         run: echo "LATEST_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
 
+      - name: 获取上一个 Tag 版本号
+        id: get_prev_tag
+        run: echo "PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' $(git rev-list --tags --skip=1 --max-count=1))" >> $GITHUB_ENV
+
+      - name: 生成更新日志
+        id: changelog
+        run: |
+          echo "### 更新日志" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          git log --pretty=format:"- %s (%an)" ${{ env.PREV_TAG }}..${{ env.LATEST_TAG }} >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          cat CHANGELOG.md
+
       - name: 下载构建产物
         uses: actions/download-artifact@v4
         with:
@@ -95,17 +108,9 @@ jobs:
         with:
           tag_name: ${{ env.LATEST_TAG }}
           name: CCRS Release ${{ env.LATEST_TAG }}
-          body: |
-            🚀 **新版本发布**
-            - 自动编译 & 打包
-            - PyInstaller 生成的可执行文件
-            - 依赖库已打包，无需单独安装
-            基于 CCRS 内核 2.0.5.14 编译
-            **⚠ 注意:** 运行时仍需 `torch` 和 `tensorflow` 的兼容 DLL
+          body_path: CHANGELOG.md
           draft: false
           prerelease: false
           files: CCRS_Build/CCRS_Build.zip
         env:
           GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
-
-
