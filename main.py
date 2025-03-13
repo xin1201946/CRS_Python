@@ -604,7 +604,7 @@ def run_gui():
 def get_clients():
     """获取当前的 clients 列表"""
     with clients_lock:
-        return clients
+        return dict(clients)
 
 
 # 主功能处理
