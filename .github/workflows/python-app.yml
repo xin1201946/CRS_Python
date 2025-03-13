@@ -74,11 +74,11 @@ jobs:
                          StringTable(
                              '040904B0',
                              [
-                                 StringStruct('CompanyName', 'Your Company'),
+                                 StringStruct('CompanyName', '林间追风'),
                                  StringStruct('FileDescription', 'Casting Char Recognition System'),
                                  StringStruct('FileVersion', '$version_str'),
                                  StringStruct('InternalName', 'CCRS'),
-                                 StringStruct('LegalCopyright', 'Copyright (C) 2025 Your Company'),
+                                 StringStruct('LegalCopyright', 'Copyright (C) 2025 林间追风'),
                                  StringStruct('OriginalFilename', 'CCRS.exe'),
                                  StringStruct('ProductName', 'CCRS'),
                                  StringStruct('ProductVersion', '$version_str')
@@ -128,10 +128,10 @@ jobs:
             $spec_content | Out-File -FilePath "CCRS.spec" -Encoding utf8
             Get-Content "CCRS.spec"  # 检查生成的内容
 
-            - name: 使用 PyInstaller 编译项目
-              run: |
-                echo "开始构建程序..."
-                pyinstaller CCRS.spec
+      - name: 使用 PyInstaller 编译项目
+        run: |
+            echo "开始构建程序..."
+            pyinstaller CCRS.spec
 
       - name: 打包构建产物
         run: Compress-Archive -Path "dist\CCRS\*" -DestinationPath "CCRS_Build.zip"
