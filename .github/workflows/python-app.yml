@@ -61,6 +61,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 确保 GITHUB_TOKEN 有写入 Release 的权限
 
     steps:
       - name: 检出代码
@@ -78,6 +80,16 @@ jobs:
           name: CCRS_Build
           path: CCRS_Build
 
+      - name: 选择合适的 Token
+        run: |
+          if [[ -n "${{ secrets.GH_PAT }}" ]]; then
+            echo "使用 GH_PAT 进行 Release"
+            echo "RELEASE_TOKEN=${{ secrets.GH_PAT }}" >> $GITHUB_ENV
+          else
+            echo "使用 GITHUB_TOKEN 进行 Release"
+            echo "RELEASE_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          fi
+
       - name: 发布 Release
         uses: softprops/action-gh-release@v2
         with:
@@ -94,4 +106,6 @@ jobs:
           prerelease: false
           files: CCRS_Build/CCRS_Build.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
+
+
