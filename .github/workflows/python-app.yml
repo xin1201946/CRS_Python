@@ -46,87 +46,86 @@ jobs:
       - name: 生成 CCRS.spec 文件
         shell: pwsh
         run: |
-            $tag = $env:LATEST_TAG.TrimStart("v")
-            $parts = $tag.Split(".")
-            if ($parts.Count -ne 3) {
-            Write-Error "版本号格式不正确，期望 vX.Y.Z 格式"
-            exit 1
-            }
-            $version_tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
-            $version_str = "v$tag"
-            
-            $spec_content = @"
-            from PyInstaller.utils.win32.versioninfo import VSVersionInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
-            
-            version_info = VSVersionInfo(
-             ffi=0x0,
-             filevers=$version_tuple,
-             prodvers=$version_tuple,
-             mask=0x3f,
-             flags=0x0,
-             OS=0x40004,
-             fileType=0x1,
-             subtype=0x0,
-             date=(0, 0),
-             kids=[
-                 StringFileInfo(
-                     [
-                         StringTable(
-                             '040904B0',
-                             [
-                                 StringStruct('CompanyName', '林间追风'),
-                                 StringStruct('FileDescription', 'Casting Char Recognition System'),
-                                 StringStruct('FileVersion', '$version_str'),
-                                 StringStruct('InternalName', 'CCRS'),
-                                 StringStruct('LegalCopyright', 'Copyright (C) 2025 林间追风'),
-                                 StringStruct('OriginalFilename', 'CCRS.exe'),
-                                 StringStruct('ProductName', 'CCRS'),
-                                 StringStruct('ProductVersion', '$version_str')
-                             ]
-                         )
-                     ]
-                 ),
-                 VarFileInfo([VarStruct('Translation', [0x0409, 1200])])
-             ]
-            )
-            
-            a = Analysis(
-             ['main.py'],
-             pathex=[],
-             binaries=[],
-             datas=[],
-             hiddenimports=[],
-             hookspath=[],
-             runtime_hooks=[],
-             excludes=[],
-             win_no_prefer_redirects=False,
-             win_private_assemblies=False,
-             cipher=None
-            )
-            
-            pyz = PYZ(a.pure, a.zipped_data, cipher=None)
-            
-            exe = EXE(
-             pyz,
-             a.scripts,
-             a.binaries,
-             a.zipfiles,
-             a.datas,
-             [],
-             name='CCRS',
-             debug=False,
-             bootloader_ignore_signals=False,
-             strip=False,
-             upx=True,
-             upx_exclude=[],
-             runtime_tmpdir=None,
-             console=True,
-             version=version_info
-            )
-            "@
-            
-            $spec_content | Out-File -FilePath "CCRS.spec" -Encoding utf8
-            Get-Content "CCRS.spec"  # 检查生成的内容
+          $tag = $env:LATEST_TAG.TrimStart("v")
+          $parts = $tag.Split(".")
+          if ($parts.Count -ne 3) {
+              Write-Error "版本号格式不正确，期望 vX.Y.Z 格式"
+              exit 1
+          }
+          $version_tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
+          $version_str = "v$tag"
+          
+          $spec_content = @"
+          from PyInstaller.utils.win32.versioninfo import VSVersionInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
+          
+          version_info = VSVersionInfo(
+              ffi=0x0,
+              kids=[
+                  StringFileInfo(
+                      [
+                          StringTable(
+                              '040904B0',
+                              [
+                                  StringStruct('CompanyName', '林间追风'),
+                                  StringStruct('FileDescription', 'Casting Char Recognition System'),
+                                  StringStruct('FileVersion', '$version_str'),
+                                  StringStruct('InternalName', 'CCRS'),
+                                  StringStruct('LegalCopyright', 'Copyright (C) 2025 林间追风'),
+                                  StringStruct('OriginalFilename', 'CCRS.exe'),
+                                  StringStruct('ProductName', 'CCRS'),
+                                  StringStruct('ProductVersion', '$version_str')
+                              ]
+                          )
+                      ]
+                  ),
+                  VarFileInfo([VarStruct('Translation', [0x0409, 1200])])
+              ],
+              mask=0x3f,
+              flags=0x0,
+              OS=0x40004,
+              fileType=0x1,
+              subtype=0x0,
+              date=(0, 0),
+              version=$version_tuple
+          )
+          
+          a = Analysis(
+              ['main.py'],
+              pathex=[],
+              binaries=[],
+              datas=[],
+              hiddenimports=[],
+              hookspath=[],
+              runtime_hooks=[],
+              excludes=[],
+              win_no_prefer_redirects=False,
+              win_private_assemblies=False,
+              cipher=None
+          )
+          
+          pyz = PYZ(a.pure, a.zipped_data, cipher=None)
+          
+          exe = EXE(
+              pyz,
+              a.scripts,
+              a.binaries,
+              a.zipfiles,
+              a.datas,
+              [],
+              name='CCRS',
+              debug=False,
+              bootloader_ignore_signals=False,
+              strip=False,
+              upx=True,
+              upx_exclude=[],
+              runtime_tmpdir=None,
+              console=True,
+              version=version_info
+          )
+          "@
+          
+          $spec_content | Out-File -FilePath "CCRS.spec" -Encoding utf8
+          Get-Content "CCRS.spec"  # 检查生成的内容
 
       - name: 使用 PyInstaller 编译项目
         run: |
