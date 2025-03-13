@@ -43,22 +43,22 @@ jobs:
       - name: 创建 version_info.txt
         shell: pwsh
         run: |
-          # 去掉前导字母 v
+          # 从环境变量中获取最新 Tag，例如 "v1.0.0"
           $tag = $env:LATEST_TAG.TrimStart("v")
           # 分割版本号
           $parts = $tag.Split(".")
           if ($parts.Count -eq 3) {
+            # 构造一个元组：最后一位补0
             $tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
           } else {
             Write-Error "版本号格式不正确，期望 vX.Y.Z 格式"
             exit 1
           }
           @"
-          # UTF-8 encoded version info
           VSVersionInfo(
           ffi=0x0400,
-          FileVersion=$tuple,
-          ProductVersion=$tuple,
+          filevers=$tuple,
+          prodvers=$tuple,
           struc_version=(0, 0, 0, 0),
           filetype=0x1,
           subtype=0x0,
@@ -74,6 +74,7 @@ jobs:
           internal_name="CCRS"
           )
           "@ | Out-File version_info.txt -Encoding utf8
+          
           
 
       - name: 编译项目
