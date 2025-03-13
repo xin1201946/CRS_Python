@@ -1,4 +1,5 @@
 import codecs
+from werkzeug.utils import secure_filename
 import configparser
 import glob
 import json
@@ -9,7 +10,6 @@ import threading
 import time
 import webbrowser
 import argparse
-
 from flask import Flask, render_template, g
 from flask import request, jsonify, send_from_directory, Response  # 引入包中要使用的类
 from flask_cors import CORS
@@ -94,19 +94,10 @@ def log_writer():
         log_queue.task_done()
 
 
+
 def log_event(event, result, remark=None, first_log=False):
-    """
-    记录日志并刷新 GUI 日志显示。
-
-    :param event: 日志事件名称
-    :param result: 日志事件结果
-    :param remark: 日志备注（默认为空）
-    :param first_log: 是否为第一次日志（决定是覆盖还是追加日志）
-    """
     remark = "" if remark is None else remark
-
     if logSwitch.lower() == 'true':
-        # 构造日志数据字典
         log_data = {
             "timestamp": time.strftime("%H:%M:%S"),
             "event": event,
@@ -114,18 +105,12 @@ def log_event(event, result, remark=None, first_log=False):
             "remark": remark,
             "first_log": first_log
         }
-
-        # 在事件未成功时发送错误信息
         if result != 'successfully':
-            # 使用字典的键直接访问
             send_message_to_client(f"服务器在执行{log_data['event']}时出错,严重等级{log_data['result']},备注信息{log_data['remark']}")
         if gui is not None:
             gui.log_event(log_data)
             gui.refresh_GUI()
-        # 将日志数据放入队列
         log_queue.put(log_data)
-
-
 
 class ConfigManager:
     def __init__(self, config_file='config.ini'):
@@ -341,30 +326,51 @@ def getpic():
 
 @app.route(f'/{API["start"]}', methods=['GET', 'POST'])
 def start():
-    # text= auto_run(None)
-    text= getNum.New_auto_run(None)
-    delete_files_in_folder('./cache/')
-    log_event('OCR Service', 'successfully',text)
-    insert_hub_info(db_file=database_file,mold_number=text)
-    return jsonify([text]),200
+    try:
+        client_uuid = request.args.get('uuid')
+        if not client_uuid or client_uuid not in clients:
+            return jsonify({'error': '无效的客户端ID'}), 403
+
+        # 构建UUID对应的文件路径
+        uuid_file = os.path.join(UPLOAD_FOLDER, secure_filename(client_uuid))
+        if not os.path.exists(uuid_file):
+            return jsonify({'error': '未找到该客户端的上传文件'}), 404
+
+        # 处理特定客户端的文件
+        text = getNum.New_auto_run(uuid_file)  # 将文件路径传入处理函数
+        # 处理完成后删除对应的UUID文件
+        # delete_files_in_folder(UPLOAD_FOLDER, filename=secure_filename(client_uuid))
+        log_event('OCR Service', 'successfully', f'客户端 {client_uuid} 处理结果: {text}')
+        insert_hub_info(db_file=database_file, mold_number=text)
+        return jsonify([text]), 200
+        
+    except Exception as e:
+        log_event('OCR Service', 'error', f'处理失败: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route(f'/{API["upload"]}', methods=['POST'])
 def upload_file():
     try:
+        client_uuid = request.args.get('uuid')
+        if not client_uuid or client_uuid not in clients:
+            return jsonify({'error': '无效的客户端ID'}), 403
+
         files = request.files
-        print(files, request.files)
+        print(f"Received files: {files}")  # 调试信息
         for file in files:
             if file and files[file].filename != '':
-                filename = files[file].filename
-                with open(os.path.join(UPLOAD_FOLDER, 'pic'), 'wb') as f:
-                    for chunk in files[file].stream:
-                        f.write(chunk)
-        log_event('Server-File Upload Service','successfully')
-        return jsonify({'message': 'Done'})
+                filename = secure_filename(client_uuid)
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                print(f"Saving file to: {file_path}")  # 调试信息
+                files[file].save(file_path)
+                
+        log_event('文件上传服务','successfully', f'客户端 {client_uuid} 上传文件')
+        return jsonify({'message': f'文件已保存为 {filename}'})
+    
     except Exception as e:
-        # Handle exception and return appropriate error response
-        log_event('Server-File Upload Service','error','文件接受失败')
-        return jsonify({'error': str(e)}), 500  # 500 indicates internal server error
+        log_event('文件上传服务','error',f'文件接受失败{e}')
+        print(f"Error: {e}")  # 打印异常信息
+        return jsonify({'error': str(e)}), 500
 
 @app.route(f'/{API["test"]}')
 def test():
@@ -377,7 +383,7 @@ def return_info():
     file_list=[]
     for fn in os.listdir('./flask-dist/UPLOAD'):  # fn 表示的是文件名
         file_name=[]
-        url=f'http://127.0.0.1:{port}/getpicture?name={fn}'
+        url=f"https" if use_https else "http"+'://{host}:{port}/getpicture?name={fn}'
         fsize = str(round(os.path.getsize("./flask-dist/UPLOAD/"+fn)/1024/1024 ,2)) + 'MiB'
         file_num = file_num + 1
         file_name.append(url)
