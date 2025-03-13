@@ -3,8 +3,8 @@ name: Build and Release CCRS
 on:
   push:
     branches:
-      - main  # 监听 main 分支的 push
-  workflow_dispatch:  # 允许手动触发
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,14 +14,18 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史，以便获取 Tag
+          fetch-depth: 0
 
       - name: 获取最新 Tag 版本号
         id: get_tag
         run: |
           $TAG = git describe --tags --abbrev=0
           echo "LATEST_TAG=$TAG" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "最新 Tag 版本: $TAG"
+          echo "最新 Tag: $TAG"
+          if (-not ($TAG -match '^v\d+\.\d+\.\d+$')) {
+            Write-Error "Tag 格式错误，必须为 vX.Y.Z，例如 v1.0.0"
+            exit 1
+          }
 
       - name: 设置 Python 3.11
         uses: actions/setup-python@v4
@@ -37,44 +41,21 @@ jobs:
         run: python -m pip install ./CCRS_Library-2.0.5.14-py3-none-any.whl
 
       - name: 安装项目依赖
-        run: |
-          python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt
 
       - name: 创建 version_info.txt
         shell: pwsh
         run: |
-          # 去掉前导字母 v
           $tag = $env:LATEST_TAG.TrimStart("v")
-          # 分割版本号
           $parts = $tag.Split(".")
-          if ($parts.Count -eq 3) {
-            $tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
-          } else {
+          if ($parts.Count -ne 3) {
             Write-Error "版本号格式不正确，期望 vX.Y.Z 格式"
             exit 1
           }
-          @"
-          # UTF-8 encoded version info
-          VSVersionInfo(
-          ffi=0x0400,
-          FileVersion=$tuple,
-          ProductVersion=$tuple,
-          struc_version=(0, 0, 0, 0),
-          filetype=0x1,
-          subtype=0x0,
-          flags=0x0,
-          OS=0x4,
-          filedate=(0, 0),
-          company_name="林间追风",
-          product_name="CCRS",
-          product_version="$($env.LATEST_TAG)",
-          file_description="Casting Char Recognition System",
-          legal_copyright="Copyright (C) 2025 林间追风",
-          original_filename="CCRS.exe",
-          internal_name="CCRS"
-          )
-          "@ | Out-File version_info.txt -Encoding utf8
-          
+          $tuple = "($($parts[0]), $($parts[1]), $($parts[2]), 0)"
+          $content = "VSVersionInfo(`n  ffi=0x0400,`n  version=$tuple,`n  struc_version=(0, 0, 0, 0),`n  filetype=0x1,`n  subtype=0x0,`n  flags=0x0,`n  OS=0x4,`n  filedate=(0, 0),`n  company_name=`"Your Company`",`n  product_name=`"CCRS`",`n  product_version=`"$($env:LATEST_TAG)`",`n  file_description=`"Casting Char Recognition System`",`n  legal_copyright=`"Copyright (C) 2025 Your Company`",`n  original_filename=`"CCRS.exe`",`n  internal_name=`"CCRS`"`n)"
+          $content | Out-File version_info.txt -Encoding utf8
+          Get-Content version_info.txt  # 调试输出
 
       - name: 编译项目
         run: |
@@ -85,7 +66,21 @@ jobs:
             --hidden-import=CCRS_Library `
             --hidden-import=tensorflow `
             --version-file=version_info.txt `
+            --log-level DEBUG `
             main.py
+
+      - name: 检查版本信息
+        shell: pwsh
+        run: |
+          $exePath = "dist\CCRS\CCRS.exe"
+          if (Test-Path $exePath) {
+            $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath)
+            echo "文件版本: $($versionInfo.FileVersion)"
+            echo "产品版本: $($versionInfo.ProductVersion)"
+          } else {
+            Write-Error "未找到 CCRS.exe"
+            exit 1
+          }
 
       - name: 打包构建产物
         run: Compress-Archive -Path "dist\CCRS\*" -DestinationPath "CCRS_Build.zip"
@@ -98,7 +93,7 @@ jobs:
           retention-days: 7
 
   release:
-    needs: build  # 依赖 build 任务
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
