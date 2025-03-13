@@ -46,7 +46,7 @@ jobs:
       - name: 使用 PyInstaller 编译项目
         run: |
             echo "开始构建程序..."
-            pyinstaller --name=CCRS --console --icon=app.ico main.py
+            pyinstaller --name=CCRS --console --icon=CCRS.ico main.py
 
       - name: 打包构建产物
         run: Compress-Archive -Path "dist\CCRS\*" -DestinationPath "CCRS_Build.zip"
