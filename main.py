@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import codecs
 from werkzeug.utils import secure_filename
 import configparser
@@ -44,26 +46,26 @@ commands = ["help", "blacklist", "sql", "server"]
 command_blacklist = ["drop table", "truncate", "delete from", "update"]
 sys_info={}
 def sql_help(_):
-    help="""
-    无拓展命令将直接执行操作
-    数据库包含的表: hub_info, mold_info
-    "--help": 帮助
-    "--check_sql": 检查数据库，无参数
-    "--insert": 要插入的模具编号
-    "--lun-gu-info-model": 查询指定模具编号的识别记录
-    "--mo-ju-jinfo-model": 查询指定模具编号的模具信息
-    "--query_all_hub_info": 快速无参查询
-    "--execute_custom_sql": 执行自定义SQL语句（绕过黑名单）
-    """
+    help = """
+        If there are no extended commands, the operation will be executed directly.
+        Tables included in the database: hub_info, mold_info
+        "--help": Show help.
+        "--check_sql": Check the database, no parameters required.
+        "--insert": The mold number to be inserted.
+        "--lun-gu-info-model": Query the recognition records of the specified mold number.
+        "--mo-ju-jinfo-model": Query the mold information of the specified mold number.
+        "--query_all_hub_info": Quick query without parameters.
+        "--execute_custom_sql": Execute a custom SQL statement (bypass the blacklist).
+        """
     return help
 sql_command_map = {
-    "--help":(sql_help,'none') ,
-    "--check_sql": (check_and_create_database, "none"),  # 检查数据库，无参数
-    "--insert": (insert_hub_info, "mold_number: 要插入的模具编号"),
-    "--lun-gu-info-model": (query_hub_info_by_mold_number, "mold_number: 要查询的模具编号"),
-    "--mo-ju-jinfo-model": (query_mold_info_by_number, "mold_number: 要查询的模具编号"),
+    "--help": (sql_help, 'none'),
+    "--check_sql": (check_and_create_database, "none"),  # Check the database, no parameters
+    "--insert": (insert_hub_info, "mold_number: The mold number to be inserted"),
+    "--lun-gu-info-model": (query_hub_info_by_mold_number, "mold_number: The mold number to query"),
+    "--mo-ju-jinfo-model": (query_mold_info_by_number, "mold_number: The mold number to query"),
     "--query_all_hub_info": (query_all_hub_info, "none"),
-    "--execute_custom_sql": (execute_custom_sql, "command: 自定义SQL语句")
+    "--execute_custom_sql": (execute_custom_sql, "command: Custom SQL statement")
 }
 mode="nomal"
 # 存储客户端的 UUID 和 socket ID 的映射关系
@@ -106,7 +108,7 @@ def log_event(event, result, remark=None, first_log=False):
             "first_log": first_log
         }
         if result != 'successfully':
-            send_message_to_client(f"服务器在执行{log_data['event']}时出错,严重等级{log_data['result']},备注信息{log_data['remark']}")
+            send_message_to_client(f"Server error executing {log_data['event']}, severity {log_data['result']}, remarks{log_data['remark']}")
         if gui is not None:
             gui.log_event(log_data)
             gui.refresh_GUI()
@@ -212,7 +214,7 @@ console = Console()
 app = Flask(__name__, static_url_path='/', static_folder='./flask-dist', template_folder='./flask-dist')
 
 # 配置 Flask-SocketIO 允许跨域
-socketios = SocketIO(app, cors_allowed_origins="*")  # 允许所有来源
+socketios = SocketIO(app, cors_allowed_origins="*",async_mode="eventlet", ping_interval=2, ping_timeout=60)
 
 
 def delete_files_in_folder(folder_path='./flask-dist/UPLOAD', filename=None):
@@ -235,49 +237,50 @@ def delete_files_in_folder(folder_path='./flask-dist/UPLOAD', filename=None):
 
 def blacklist_operations(command):
     if "--help" in command:
-        return  jsonify("可执行的参数有：--help显示可执行的参数，--add临时向backlist列表添加黑名单命令，--remove临时删除黑名单内的命令，--show显示黑名单的指令（默认无参数也是显示黑名单指令）")
+        return jsonify(
+            "Available parameters are: --help to display available parameters, --add to temporarily add a blacklist command to the backlist list, --remove to temporarily remove a command from the blacklist, --show to display the blacklist instructions (by default, no parameters also means displaying the blacklist instructions).")
     elif "--add" in command:
         command_blacklist.append(command.split("--add")[1].strip())
-        log_event('SQL blacklist', 'successfully', f'add {command}')
-        return jsonify(f"已将'{command.split('--add')[1].strip()}'添加到黑名单列表。")
+        log_event('Server-SQL blacklist', 'successfully', f'add {command}')
+        return jsonify(f"Successfully added '{command.split('--add')[1].strip()}' to the blacklist.")
     elif "--remove" in command:
         if command.split("--remove")[1].strip() in command_blacklist:
             command_blacklist.remove(command.split("--remove")[1].strip())
-            log_event('SQL blacklist', 'successfully', f'remove {command}')
-            return jsonify(f"已从黑名单列表中删除'{command.split('--remove')[1].strip()}'。")
+            log_event('Server-SQL blacklist', 'successfully', f'remove {command}')
+            return jsonify(f"Successfully removed '{command.split('--remove')[1].strip()}' from the blacklist.")
         else:
-            return f"'{command.split('--remove')[1].strip()}'不在黑名单列表中，无法删除。"
+            return f"'{command.split('--remove')[1].strip()}' is not in the blacklist and cannot be removed."
     elif "--show" in command or not any(arg in command for arg in ["--add", "--remove", "--help"]):
-        return jsonify (f"当前黑名单列表：{command_blacklist}")
+        return jsonify(f"Current blacklist: {command_blacklist}")
     else:
-        return jsonify( "无效的黑名单操作命令。")
+        return jsonify("Invalid blacklist operation command.")
 
 # 执行SQL命令的函数
 def execute_sql(command):
-    print(command)
     for keyword in command_blacklist:
         if keyword in command.lower():
-            log_event('SQL blacklist', 'warning', f'can`t run {command} with SQL')
-            return jsonify(f"禁止执行包含'{keyword}'的命令")
+            log_event('Server-SQL blacklist', 'warning', f'Can`t run {command} with SQL')
+            return jsonify(f"Commands containing '{keyword}' are prohibited.")
 
-        # 匹配命令和参数
+    # Match commands and parameters
     for cmd, (func, params_desc) in sql_command_map.items():
         if command.startswith(cmd):
-            args = command[len(cmd):].strip()  # 获取参数部分
+            args = command[len(cmd):].strip()  # Get the parameter part
             if params_desc == "none" and args:
-                log_event('SQL service', 'warning', f'不可接受的参数{cmd}')
-                return jsonify(f"命令 {cmd} 不接受参数")
+                log_event('Server-SQL service', 'warning', f'Unacceptable parameter for {cmd}')
+                return jsonify(f"Command {cmd} does not accept parameters.")
             try:
-                if params_desc !='none':
-                    log_event('SQL service', 'successfully')
+                if params_desc != 'none':
+                    log_event('Server-SQL service', 'successfully')
                     result = func(database_file, args)
                 else:
-                    log_event('SQL service', 'successfully')
+                    log_event('Server-SQL service', 'successfully')
                     result = func(database_file)
                 return jsonify(result)
             except Exception as e:
-                log_event('SQL service', 'error',f'{str(e)}')
-                return jsonify(f"命令执行失败: {str(e)}")
+                log_event('SQL service', 'error', str(e))
+                return jsonify(f"Command execution failed: {str(e)}")
+
     return jsonify(execute_custom_sql(database_file, command))
 
 @app.route('/')
@@ -301,26 +304,26 @@ def getpic():
     try:
         filename = request.args.get('name')
         if not filename:
-            log_event('Server-File Service', 'warning', f'要查找的文件名{filename}不合法')
+            log_event('Server-File Service', 'warning', f'FileName:{filename} was Invalid')
             return jsonify({'error': 'No filename provided'}), 400
 
         # 确保文件存在
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         if not os.path.exists(file_path):
-            log_event('Server-File Service', 'error', f'要找的文件{file_path}不存在')
+            log_event('Server-File Service', 'error', f'The file {file_path} you are looking for does not exist')
             return jsonify({'error': 'File does not exist'}), 404
 
         # 确保 Flask 应用有权限读取文件
         if not os.access(file_path, os.R_OK):
-            log_event('Server-File Service', 'error', f'文件{file_path}读取权限被拒绝')
+            log_event('Server-File Service', 'error', f'File {file_path} read permission denied')
             return jsonify({'error': 'File is not readable'}), 403
 
         # 返回图片文件
-        log_event('Server-File Service', 'successfully', '成功')
+        log_event('Server-File Service', 'successfully', 'successfully')
         return send_from_directory(UPLOAD_FOLDER, filename)
 
     except Exception as e:
-        log_event('Server-File Service', 'error', f'发生未处理的异常: {str(e)}')
+        log_event('Server-File Service', 'error', f'An unhandled exception occurred: {str(e)}')
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -329,23 +332,23 @@ def start():
     try:
         client_uuid = request.args.get('uuid')
         if not client_uuid or client_uuid not in clients:
-            return jsonify({'error': '无效的客户端ID'}), 403
+            return jsonify({'error': 'Invalid Client ID'}), 403
 
         # 构建UUID对应的文件路径
         uuid_file = os.path.join(UPLOAD_FOLDER, secure_filename(client_uuid))
         if not os.path.exists(uuid_file):
-            return jsonify({'error': '未找到该客户端的上传文件'}), 404
+            return jsonify({'error': 'The upload file for this client was not found. '}), 404
 
         # 处理特定客户端的文件
         text = getNum.New_auto_run(uuid_file)  # 将文件路径传入处理函数
         # 处理完成后删除对应的UUID文件
         # delete_files_in_folder(UPLOAD_FOLDER, filename=secure_filename(client_uuid))
-        log_event('OCR Service', 'successfully', f'客户端 {client_uuid} 处理结果: {text}')
+        log_event('Server-OCR Service', 'successfully', f'Client {client_uuid} processing result: {text}')
         insert_hub_info(db_file=database_file, mold_number=text)
         return jsonify([text]), 200
         
     except Exception as e:
-        log_event('OCR Service', 'error', f'处理失败: {str(e)}')
+        log_event('Server-OCR Service', 'error', f'Processing failed: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 @app.route(f'/{API["upload"]}', methods=['POST'])
@@ -353,7 +356,7 @@ def upload_file():
     try:
         client_uuid = request.args.get('uuid')
         if not client_uuid or client_uuid not in clients:
-            return jsonify({'error': '无效的客户端ID'}), 403
+            return jsonify({'error': 'Invalid Client ID'}), 403
 
         files = request.files
         print(f"Received files: {files}")  # 调试信息
@@ -364,11 +367,11 @@ def upload_file():
                 print(f"Saving file to: {file_path}")  # 调试信息
                 files[file].save(file_path)
                 
-        log_event('文件上传服务','successfully', f'客户端 {client_uuid} 上传文件')
-        return jsonify({'message': f'文件已保存为 {filename}'})
+        log_event('Server-Upload Service','successfully', f'Client {client_uuid} Upload File')
+        return jsonify({'message': f'The file has been saved as {filename}'})
     
     except Exception as e:
-        log_event('文件上传服务','error',f'文件接受失败{e}')
+        log_event('Server-Upload Service','error',f'File acceptance failed:{e}')
         print(f"Error: {e}")  # 打印异常信息
         return jsonify({'error': str(e)}), 500
 
@@ -590,7 +593,7 @@ def init():
         log_event('Server-Configuration Reading Service', 'successfully', 'Server started successfully!')
 
     log_event('Server-SERVER START SUCCESS', 'successfully', 'Server started successfully')
-    console.print('')
+    print("SERVER START SUCCESS")
 
     CORS(app)
 
