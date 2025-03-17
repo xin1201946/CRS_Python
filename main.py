@@ -1,4 +1,5 @@
 import eventlet
+
 eventlet.monkey_patch()
 import codecs
 from werkzeug.utils import secure_filename
@@ -181,51 +182,77 @@ class ConfigManager:
                     "# Ensure that you have a valid certificate and private key for the domain, otherwise, the front-end will not trust the server, leading to functionality issues.\n"
                 )
                 configfile.write(
-                    '# This is a server configuration file. Any modifications require a server restart to take effect.\n')
-                configfile.write('[Settings]\n')
+                    "# This is a server configuration file. Any modifications require a server restart to take effect.\n"
+                )
+                configfile.write("[Settings]\n")
                 configfile.write(
-                    '# "host" specifies the IP or domain name the server listens on. Default is 127.0.0.1.\n')
-                configfile.write('host = 127.0.0.1\n')
+                    '# "host" specifies the IP or domain name the server listens on. Default is 127.0.0.1.\n'
+                )
+                configfile.write("host = 127.0.0.1\n")
                 configfile.write(
-                    '# "port" specifies the server listening port, effective only when HTTPS is disabled. Default is 5000.\n')
-                configfile.write('port = 5000\n')
-                configfile.write('# "debug" indicates whether the server is in debug mode. No actual impact.\n')
-                configfile.write('debug = false\n')
-                configfile.write('# "logSwitch" controls whether the front-end can access server logs.\n')
-                configfile.write('logSwitch = true\n')
+                    '# "port" specifies the server listening port, effective only when HTTPS is disabled. Default is 5000.\n'
+                )
+                configfile.write("port = 5000\n")
+                configfile.write(
+                    '# "debug" indicates whether the server is in debug mode. No actual impact.\n'
+                )
+                configfile.write("debug = false\n")
+                configfile.write(
+                    '# "logSwitch" controls whether the front-end can access server logs.\n'
+                )
+                configfile.write("logSwitch = true\n")
 
-                configfile.write('\n[SSH_Service]\n')
+                configfile.write("\n[SSH_Service]\n")
                 configfile.write(
-                    '# "use_https" determines whether the server uses a more secure HTTPS protocol. Default is false.\n')
+                    '# "use_https" determines whether the server uses a more secure HTTPS protocol. Default is false.\n'
+                )
                 configfile.write(
-                    '# If "use_https" is enabled, the front-end must be updated accordingly in the advanced settings.\n')
+                    '# If "use_https" is enabled, the front-end must be updated accordingly in the advanced settings.\n'
+                )
                 configfile.write(
-                    '# Ensure that you have a valid certificate and private key for the domain, otherwise, the front-end will not trust the server, leading to functionality issues.\n')
+                    "# Ensure that you have a valid certificate and private key for the domain, otherwise, the front-end will not trust the server, leading to functionality issues.\n"
+                )
                 configfile.write(
-                    '# Before enabling this option, place the certificate and private key in the directory specified by "ssh_path".\n')
-                configfile.write('use_https = false\n')
+                    '# Before enabling this option, place the certificate and private key in the directory specified by "ssh_path".\n'
+                )
+                configfile.write("use_https = false\n")
                 configfile.write(
-                    '# "ssh_path" specifies the directory where the certificate and private key are stored.\n')
-                configfile.write('ssh_path = ./CRT\n')
+                    '# "ssh_path" specifies the directory where the certificate and private key are stored.\n'
+                )
+                configfile.write("ssh_path = ./CRT\n")
 
-                configfile.write('\n[API_Service]\n')
+                configfile.write("\n[API_Service]\n")
                 configfile.write(
-                    '# This section allows customization of API endpoints. Any changes require synchronization in the front-end advanced settings.\n')
-                configfile.write('# "USE_OPTIONS" must be set to true for the server to apply custom API settings.\n')
-                configfile.write('USE_OPTIONS = false\n')
-                configfile.write('# "isHTTPS" specifies whether the server uses HTTPS services.\n')
-                configfile.write('isHTTPS = isHTTPS\n')
-                configfile.write('# "clear" specifies the API used to delete uploaded images.\n')
-                configfile.write('clear = clear\n')
-                configfile.write('# "getpicture" specifies the API used to retrieve uploaded images.\n')
-                configfile.write('getpicture = getpicture\n')
+                    "# This section allows customization of API endpoints. Any changes require synchronization in the front-end advanced settings.\n"
+                )
                 configfile.write(
-                    '# "start" specifies the API used when the front-end requests the server to start processing.\n')
-                configfile.write('start = start\n')
-                configfile.write('# "upload" specifies the API used when a user uploads images.\n')
-                configfile.write('upload = upload\n')
-                configfile.write('# "test" specifies the API used to check the connection status of the front-end.\n')
-                configfile.write('test = test\n')
+                    '# "USE_OPTIONS" must be set to true for the server to apply custom API settings.\n'
+                )
+                configfile.write("USE_OPTIONS = false\n")
+                configfile.write(
+                    '# "isHTTPS" specifies whether the server uses HTTPS services.\n'
+                )
+                configfile.write("isHTTPS = isHTTPS\n")
+                configfile.write(
+                    '# "clear" specifies the API used to delete uploaded images.\n'
+                )
+                configfile.write("clear = clear\n")
+                configfile.write(
+                    '# "getpicture" specifies the API used to retrieve uploaded images.\n'
+                )
+                configfile.write("getpicture = getpicture\n")
+                configfile.write(
+                    '# "start" specifies the API used when the front-end requests the server to start processing.\n'
+                )
+                configfile.write("start = start\n")
+                configfile.write(
+                    '# "upload" specifies the API used when a user uploads images.\n'
+                )
+                configfile.write("upload = upload\n")
+                configfile.write(
+                    '# "test" specifies the API used to check the connection status of the front-end.\n'
+                )
+                configfile.write("test = test\n")
                 configfile.write(
                     '# "info" specifies the API used to retrieve upload file information from the server.\n'
                 )
@@ -638,25 +665,30 @@ def run_command():
         log_event("Server-SERVER CANNOT RUN COMMAND", "warning", e)
         return jsonify(f"An error occurred: {str(e)}")
 
-@app.route("/adduuid",methods=['GET'])
+
+@app.route("/adduuid", methods=["GET"])
 def add_uuid():
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             if uuid not in clients:
-                clients[uuid]=uuid
-                gui.queue.put({"event": "New device", "UUID": uuid, "aID": "API-"+uuid})
+                clients[uuid] = uuid
+                gui.queue.put(
+                    {"event": "New device", "UUID": uuid, "aID": "API-" + uuid}
+                )
             else:
                 pass
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error', e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
-@app.route("/removeuuid",methods=['GET'])
+
+@app.route("/removeuuid", methods=["GET"])
 def remove_uuid():
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     with clients_lock:
         del clients[uuid]
-    log_event(f"Server-Client {uuid} disconnected",'info')
+    log_event(f"Server-Client {uuid} disconnected", "info")
+
 
 # 监听客户端注册事件（传递 UUID）
 @socketios.on("register")
@@ -666,12 +698,14 @@ def handle_register(data):
             client_uuid = data["uuid"]
             if client_uuid not in clients:
                 clients[client_uuid] = request.sid
-                gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
-                send_message_to_client('Client registered successfully', client_uuid)
+                gui.queue.put(
+                    {"event": "New device", "UUID": data["uuid"], "aID": request.sid}
+                )
+                send_message_to_client("Client registered successfully", client_uuid)
             else:
                 pass
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error', e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
 
 @socketios.on("disconnect")
@@ -684,7 +718,7 @@ def handle_disconnect():
             break
     if uuid:
         del clients[uuid]  # 删除该客户端的连接信息
-    log_event(f"Server-Client {uuid} disconnected",'info')
+    log_event(f"Server-Client {uuid} disconnected", "info")
 
 
 # 发送消息到指定客户端
