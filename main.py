@@ -386,7 +386,7 @@ def return_info():
     file_list=[]
     for fn in os.listdir('./flask-dist/UPLOAD'):  # fn 表示的是文件名
         file_name=[]
-        url=f"https" if use_https else "http"+'://{host}:{port}/getpicture?name={fn}'
+        url="https" if use_https else "http"+'://{host}:{port}/getpicture?name={fn}'
         fsize = str(round(os.path.getsize("./flask-dist/UPLOAD/"+fn)/1024/1024 ,2)) + 'MiB'
         file_num = file_num + 1
         file_name.append(url)
@@ -676,7 +676,7 @@ def main(args):
     if args.CUTIMAGEFROMDIR:
         source_dir = args.CUTIMAGEFROMDIR[0]
         save_dir = args.CUTIMAGEFROMDIR[1] if len(args.CUTIMAGEFROMDIR) > 1 else os.path.join(source_dir, 'Save')
-        print(f"Command: CUTIMAGEFROMDIR")
+        print("Command: CUTIMAGEFROMDIR")
         print(f"Source Directory: {source_dir}")
         print(f"Save Directory: {save_dir}")
         getNum.quick_cut_img(source_dir, save_dir)
@@ -685,7 +685,7 @@ def main(args):
     if args.PROCESSIMAGEDIR:
         source_dir = args.PROCESSIMAGEDIR[0]
         save_dir = args.PROCESSIMAGEDIR[1] if len(args.PROCESSIMAGEDIR) > 1 else None
-        print(f"Command: PROCESSIMAGEDIR")
+        print("Command: PROCESSIMAGEDIR")
         print(f"Source Directory: {source_dir}")
         print(f"Save Directory: {save_dir if save_dir else 'Not specified'}")
         getNum.process_image(source_dir, save_dir)
