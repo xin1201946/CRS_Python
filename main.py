@@ -562,8 +562,8 @@ def init():
     port = config_manager.get_with_default('Settings', 'port', '5000')
     debug = config_manager.get_with_default('Settings', 'debug', 'false')
 
-    use_https = False if config_manager.get_with_default('SSH_Service', 'use_https',
-                                                         'false').lower() == 'false' else True
+    use_https = not config_manager.get_with_default('SSH_Service', 'use_https',
+                                                         'false').lower() == 'false'
     ssh_key, ssh_crt = get_ssl_files_paths(config_manager.get_with_default('SSH_Service', 'ssh_path', './CRT'))
 
     if config_manager.get_with_default('API_Service', 'USE_OPTIONS', 'false') == 'true':
@@ -599,10 +599,10 @@ def init():
 
     if use_https:
         context = (f'{ssh_crt}', f'{ssh_key}')
-        socketios.run(debug=True if debug == 'true' else False, host=host, port=443, app=app,
+        socketios.run(debug=debug == 'true', host=host, port=443, app=app,
                       allow_unsafe_werkzeug=True, ssl_context=context)
     else:
-        socketios.run(debug=True if debug == 'true' else False, host=host, port=int(port),
+        socketios.run(debug=debug == 'true', host=host, port=int(port),
                       app=app, allow_unsafe_werkzeug=True)
 
 
@@ -612,7 +612,7 @@ def run_gui():
     host = config_manager.get_with_default('Settings', 'host', '127.0.0.1')
     logSwitch = config_manager.get_with_default('Settings', 'logSwitch', 'true')
     port = config_manager.get_with_default('Settings', 'port', '5000')
-    use_https=False if config_manager.get_with_default('SSH_Service', 'use_https','false').lower()=='false' else True
+    use_https=not config_manager.get_with_default('SSH_Service', 'use_https','false').lower()=='false'
 
     # 创建 GUI 实例
     gui = ServerGUI(
