@@ -12,7 +12,7 @@ import threading
 import time
 import webbrowser
 import argparse
-from flask import Flask, render_template, g
+from flask import Flask, render_template
 from flask import request, jsonify, send_from_directory, Response  # 引入包中要使用的类
 from flask_cors import CORS
 from flask_socketio import SocketIO
