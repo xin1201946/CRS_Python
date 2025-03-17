@@ -239,17 +239,16 @@ def blacklist_operations(command):
     if "--help" in command:
         return jsonify(
             "Available parameters are: --help to display available parameters, --add to temporarily add a blacklist command to the backlist list, --remove to temporarily remove a command from the blacklist, --show to display the blacklist instructions (by default, no parameters also means displaying the blacklist instructions).")
-    elif "--add" in command:
+    if "--add" in command:
         command_blacklist.append(command.split("--add")[1].strip())
         log_event('Server-SQL blacklist', 'successfully', f'add {command}')
         return jsonify(f"Successfully added '{command.split('--add')[1].strip()}' to the blacklist.")
-    elif "--remove" in command:
+    if "--remove" in command:
         if command.split("--remove")[1].strip() in command_blacklist:
             command_blacklist.remove(command.split("--remove")[1].strip())
             log_event('Server-SQL blacklist', 'successfully', f'remove {command}')
             return jsonify(f"Successfully removed '{command.split('--remove')[1].strip()}' from the blacklist.")
-        else:
-            return f"'{command.split('--remove')[1].strip()}' is not in the blacklist and cannot be removed."
+        return f"'{command.split('--remove')[1].strip()}' is not in the blacklist and cannot be removed."
     elif "--show" in command or not any(arg in command for arg in ["--add", "--remove", "--help"]):
         return jsonify(f"Current blacklist: {command_blacklist}")
     else:
@@ -432,9 +431,8 @@ def get_logs():
             # 使用 json.dumps 来确保返回 JSON 数据时不转义中文
             response_data = json.dumps(logs, ensure_ascii=False)
             return Response(response_data, mimetype='application/json; charset=utf-8')
-        else:
-            log_event('Server-logging error', 'warning', 'The front end attempts to read the log, but is rejected by the server')
-            return jsonify({'message': 'Log access is denied. Try to enable log query service in the configuration file.'})
+        log_event('Server-logging error', 'warning', 'The front end attempts to read the log, but is rejected by the server')
+        return jsonify({'message': 'Log access is denied. Try to enable log query service in the configuration file.'})
     except Exception as e:
         log_event('SERVER CANNOT READ LOGS', 'error', e)
 
@@ -479,24 +477,22 @@ def run_command():
             if command.lower() == "exit":
                 mode = 'normal'
                 return jsonify( "Exit SQLite")
-            else:
-                result = execute_sql(command)
-                return result
+            result = execute_sql(command)
+            return result
         else:
             if command.lower().startswith("help"):
                 return jsonify(
                     "Available commands: help (display help information), blacklist (perform blacklist-related operations, can include parameters like --help, etc.), sql (enter standalone SQL execution mode, type 'exit' to return to normal mode)")
-            elif command.lower().startswith("blacklist"):
+            if command.lower().startswith("blacklist"):
                 return blacklist_operations(command)
-            elif "sql" in command.lower():
+            if "sql" in command.lower():
                 mode = 'sql'
                 print("Entered SQL execution mode. Type 'exit' to return to normal mode.")
                 return jsonify(
                     "Entered SQL execution mode. Type 'exit' to return to normal mode. You can enter --help to view help.")
-            elif "exit" in command.lower():
+            if "exit" in command.lower():
                 return jsonify("Returned to normal mode.")
-            else:
-                return jsonify("Invalid command. Please enter a valid command.")
+            return jsonify("Invalid command. Please enter a valid command.")
     except Exception as e:
         log_event('Server-SERVER CANNOT RUN COMMAND', 'warning', e)
         return jsonify(f"An error occurred: {str(e)}")

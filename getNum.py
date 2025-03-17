@@ -65,7 +65,7 @@ def process_image(image_path, save_path=None):
             insert_hub_info("./db/data.db",result_text)
 
         return content_to_write
-    elif os.path.isdir(image_path):
+    if os.path.isdir(image_path):
         # 如果给定的是目录路径
         all_content_to_write = ""
         for root, dirs, files in os.walk(image_path):
@@ -84,8 +84,7 @@ def process_image(image_path, save_path=None):
                     check_and_create_database("./db/data.db")
                     insert_hub_info("./db/data.db", result_text)
         return all_content_to_write
-    else:
-        raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
+    raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
 
 def New_auto_run(path: None):
     """
