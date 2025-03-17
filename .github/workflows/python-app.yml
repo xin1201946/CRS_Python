@@ -17,17 +17,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       
-      - name: Report results to DeepSource
-        run: |
-          # Tests have finished and a test coverage report is available
-      
-          # Install deepsource CLI
-            curl https://deepsource.io/cli | sh
-      
-          # From the root directory, run the report coverage command
-            ./bin/deepsource report --analyzer test-coverage --key python --value-file ./path/to/report
-        env:
-          DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
 
       - name: 获取最新 Tag 版本号
         id: get_tag
