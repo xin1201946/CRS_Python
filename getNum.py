@@ -45,7 +45,7 @@ def get_num(
         save_file=save,
         save_path=save_path,
         save_name=save_name,
-        show_result=True,
+        show_result=False,
         load_imagePath=load_imagePath,
     )
 

@@ -1,24 +1,26 @@
 @echo off
+chcp 65001 >nul  & REM è§£å†³ä¹±ç é—®é¢˜
 
-echo ÕýÔÚ³¢ÊÔ¹¹½¨...
+echo æ­£åœ¨ç¼–è¯‘...
 echo.
 
-:: ¼ì²éÐéÄâ»·¾³ÊÇ·ñ´æÔÚ
+:: æ£€æŸ¥ Python æ˜¯å¦å­˜åœ¨
 if not exist ".\.venv\Scripts\python.exe" (
-    echo [´íÎó] ÐéÄâ»·¾³²»´æÔÚ£¬ÇëÏÈ´´½¨ÐéÄâ»·¾³£¡
+    echo [é”™è¯¯] Python è§£é‡Šå™¨ä¸å­˜åœ¨ï¼Œè¯·å…ˆå®‰è£…è™šæ‹ŸçŽ¯å¢ƒï¼
     pause
     exit /b
 )
 
-:: ¹¹½¨³ÌÐò
+:: Nuitka ç¼–è¯‘
 ".\.venv\Scripts\python.exe" -m nuitka ^
     --standalone ^
     --follow-imports ^
-    --nofollow-import-to=IPython ^
     --output-dir=.\dist ^
     --enable-plugin=no-qt ^
     --include-module=ultralytics ^
     --include-module=CCRS_Library ^
+    --include-package=torch ^
+    --include-package=torchvision ^
     --include-module=tensorflow ^
     --module-parameter=torch-disable-jit=no ^
     --windows-icon-from-ico=.\CCRS.ico ^
@@ -29,43 +31,39 @@ if not exist ".\.venv\Scripts\python.exe" (
     --output-filename=CCRS ^
     main.py 
 
-echo ¹¹½¨Íê³É£¡
+echo ç¼–è¯‘å®Œæˆï¼
 echo.
-echo ½øÐÐ×îºóµÄÎÄ¼þ¸´ÖÆ...
-echo Çë²»Òª¹Ø±Õ´°¿Ú
-:: ¸´ÖÆ Python ÒÀÀµÎÄ¼þ¼Ð
+echo çŽ°åœ¨å¼€å§‹å¤åˆ¶å¿…è¦çš„æ–‡ä»¶...
+
+:: å¤åˆ¶ Python ä¾èµ–
 set SRC_DIR=.venv\Lib\site-packages
 set DST_DIR=.\dist\main.dist
 
 for %%D in (ultralytics CCRS_Library yolov5 yolov5\models torch torchaudio torchgen torchvision) do (
     if exist "%SRC_DIR%\%%D" (
-        echo ¸´ÖÆ %%D ...
+        echo å¤åˆ¶ %%D ...
         xcopy "%SRC_DIR%\%%D" "%DST_DIR%\%%D" /E /I /Y >nul
     ) else (
-        echo [¾¯¸æ] Î´ÕÒµ½ %SRC_DIR%\%%D£¬Ìø¹ý¸´ÖÆ£¡
+        echo [è­¦å‘Š] æœªæ‰¾åˆ° %SRC_DIR%\%%Dï¼Œè·³è¿‡ï¼
     )
 )
 
-:: ¸´ÖÆ¶ÀÁ¢ÎÄ¼þ
-if exist ".\getNum.py" (
-    copy ".\getNum.py" "%DST_DIR%\getNum.py" /Y >nul
-)
-
+:: å¤åˆ¶ Flask ç›¸å…³æ–‡ä»¶
 if exist ".\flask-dist" (
     xcopy ".\flask-dist" "%DST_DIR%\flask-dist" /E /I /Y >nul
 )
 
-echo ×îºó²½ÖèÍê³É£¡
+echo å¤åˆ¶å®Œæˆï¼
 echo.
-echo ×¼±¸Æô¶¯ CCRS...
+echo çŽ°åœ¨å¯åŠ¨ CCRS...
 
-:: Æô¶¯³ÌÐò
+:: è¿è¡Œç¨‹åº
 "%DST_DIR%\CCRS.exe" --simulate
 
 if errorlevel 1 (
-    echo [´íÎó] ³ÌÐòÆô¶¯Ê§°Ü£¡
+    echo [é”™è¯¯] è¿è¡Œå¤±è´¥ï¼
 ) else (
-    echo [³É¹¦] ³ÌÐòÕý³£Æô¶¯£¡
+    echo [æˆåŠŸ] ç¨‹åºå¯åŠ¨æˆåŠŸï¼
 )
 
 pause
