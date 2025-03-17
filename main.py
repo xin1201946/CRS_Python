@@ -298,7 +298,7 @@ def clear_files():
   return jsonify('Delete'), 200
 
 
-@app.route(f'/{API["getpicture"]}', methods=['GET', 'POST'])
+@app.route(f'/{API["getpicture"]}', methods=['GET'])
 def getpic():
     try:
         filename = request.args.get('name')
@@ -326,7 +326,7 @@ def getpic():
         return jsonify({'error': 'Internal server error'}), 500
 
 
-@app.route(f'/{API["start"]}', methods=['GET', 'POST'])
+@app.route(f'/{API["start"]}', methods=['GET'])
 def start():
     try:
         client_uuid = request.args.get('uuid')
@@ -468,7 +468,7 @@ def get_ssl_files_paths(ssh_path,key_ext='.key',crt_ext='.crt'):
 def get_database():
     hub_info_results = query_all_hub_info(database_file)
     return jsonify({'result': hub_info_results}),200
-@app.route('/command',methods=['GET','POST'])
+@app.route('/command',methods=['GET'])
 def run_command():
     global mode
     command = request.args.get('command')
