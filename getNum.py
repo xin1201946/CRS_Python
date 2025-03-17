@@ -1,8 +1,12 @@
-
-from CCRS_Library import (new_clear_pic as clearp,get_num_obb as newNumV,insert_hub_info,
-                          check_and_create_database)
+from CCRS_Library import (
+    new_clear_pic as clearp,
+    get_num_obb as newNumV,
+    insert_hub_info,
+    check_and_create_database,
+)
 import os
 from PIL import Image
+
 
 def get_pic(path):
     """
@@ -11,29 +15,44 @@ def get_pic(path):
     :return: 二值化，伽马矫正，对比度调整的图像
     """
 
-    pic_path = path if path is not None else './flask-dist/UPLOAD/pic'
+    pic_path = path if path is not None else "./flask-dist/UPLOAD/pic"
     img = Image.open(pic_path)
-    bw_img = img.convert('L')  #灰度图像
+    bw_img = img.convert("L")  # 灰度图像
     return bw_img
 
+
 def cut_pic(img):
-    '''
+    """
     使用剪切模型定位数字区域
     :param img: 经过二值化的图像
     :return: 裁剪后的图像
-    '''
+    """
     return clearp(img)
 
-def get_num(_,save_path='D:/hbsoftware/AIFlask/result/',save=False,save_name='',load_imagePath=None) -> str:
+
+def get_num(
+    _,
+    save_path="D:/hbsoftware/AIFlask/result/",
+    save=False,
+    save_name="",
+    load_imagePath=None,
+) -> str:
     """
     使用模型获取数值
     :return: 数字文本 (str)
     """
-    return newNumV(save_file=save,save_path=save_path,save_name=save_name,show_result=True,load_imagePath=load_imagePath)
+    return newNumV(
+        save_file=save,
+        save_path=save_path,
+        save_name=save_name,
+        show_result=True,
+        load_imagePath=load_imagePath,
+    )
 
-def quick_cut_img(path,savepath):
+
+def quick_cut_img(path, savepath):
     if savepath is None:
-        return 'No SavePath?'
+        return "No SavePath?"
     if not os.path.exists(savepath):
         os.makedirs(savepath)
         print(f"Save directory '{savepath}' does not exist. Created successfully.")
@@ -41,8 +60,14 @@ def quick_cut_img(path,savepath):
         # 构建完整的文件路径
         file_path = os.path.join(path, filename)
         print(file_path)
-        get_num(cut_pic(get_pic(file_path)),save=True,save_name=filename,save_path=savepath)
+        get_num(
+            cut_pic(get_pic(file_path)),
+            save=True,
+            save_name=filename,
+            save_path=savepath,
+        )
     return True
+
 
 def process_image(image_path, save_path=None):
     """
@@ -60,9 +85,9 @@ def process_image(image_path, save_path=None):
             with open(result_file_path, "a", encoding="utf-8") as f:
                 f.write(content_to_write)
         else:
-            print('未指定保存路径，将保存至数据库中')
+            print("未指定保存路径，将保存至数据库中")
             check_and_create_database("./db/data.db")
-            insert_hub_info("./db/data.db",result_text)
+            insert_hub_info("./db/data.db", result_text)
 
         return content_to_write
     if os.path.isdir(image_path):
@@ -80,11 +105,12 @@ def process_image(image_path, save_path=None):
                     with open(result_file_path, "a", encoding="utf-8") as f:
                         f.write(single_content)
                 else:
-                    print('未指定保存路径，将保存至数据库中')
+                    print("未指定保存路径，将保存至数据库中")
                     check_and_create_database("./db/data.db")
                     insert_hub_info("./db/data.db", result_text)
         return all_content_to_write
     raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
+
 
 def New_auto_run(path: None):
     """
@@ -92,6 +118,6 @@ def New_auto_run(path: None):
     :param path: 图像路径，可为空
     :return: 数字文本 (str)
     """
-    img,paths=clearp(get_pic(path))
+    img, paths = clearp(get_pic(path))
     print(paths[0])
-    return get_num(img,load_imagePath=paths[0])
+    return get_num(img, load_imagePath=paths[0])
