@@ -85,9 +85,9 @@ def process_image(image_path, save_path=None):
             with open(result_file_path, "a", encoding="utf-8") as f:
                 f.write(content_to_write)
         else:
-            print('未指定保存路径，将保存至数据库中')
+            print("未指定保存路径，将保存至数据库中")
             check_and_create_database("./db/data.db")
-            insert_hub_info("./db/data.db",result_text)
+            insert_hub_info("./db/data.db", result_text)
 
         return content_to_write
     elif os.path.isdir(image_path):
@@ -97,7 +97,7 @@ def process_image(image_path, save_path=None):
             for file in files:
                 file_full_path = os.path.join(root, file)
                 file_name = os.path.basename(file_full_path)
-                print(file_full_path+file_name)
+                print(file_full_path + file_name)
                 new_result_text = New_auto_run(file_full_path)
                 single_content = f"{file_name} - {new_result_text}\n"
                 all_content_to_write += single_content
@@ -106,7 +106,7 @@ def process_image(image_path, save_path=None):
                     with open(result_file_path, "a", encoding="utf-8") as f:
                         f.write(single_content)
                 else:
-                    print('未指定保存路径，将保存至数据库中')
+                    print("未指定保存路径，将保存至数据库中")
                     check_and_create_database("./db/data.db")
                     insert_hub_info("./db/data.db", new_result_text)
         return all_content_to_write

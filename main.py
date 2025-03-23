@@ -1,4 +1,5 @@
 import eventlet
+
 eventlet.monkey_patch()
 import codecs
 from werkzeug.utils import secure_filename
@@ -154,30 +155,29 @@ class ConfigManager:
 
                 # Settings
                 configfile.write("[Settings]\n")
-                configfile.write('host = 127.0.0.1\n')
-                configfile.write('port = 5000\n')
-                configfile.write('debug = false\n')
-                configfile.write('logSwitch = true\n')
+                configfile.write("host = 127.0.0.1\n")
+                configfile.write("port = 5000\n")
+                configfile.write("debug = false\n")
+                configfile.write("logSwitch = true\n")
 
                 # SSH_Service
                 configfile.write("\n[SSH_Service]\n")
-                configfile.write('use_https = false\n')
-                configfile.write('ssh_path = ./CRT\n')
+                configfile.write("use_https = false\n")
+                configfile.write("ssh_path = ./CRT\n")
 
                 # API_Service
                 configfile.write("\n[API_Service]\n")
-                configfile.write('USE_OPTIONS = false\n')
-                configfile.write('isHTTPS = isHTTPS\n')
-                configfile.write('clear = clear\n')
-                configfile.write('getpicture = getpicture\n')
-                configfile.write('start = start\n')
-                configfile.write('upload = upload\n')
-                configfile.write('test = test\n')
-                configfile.write('info = info\n')
+                configfile.write("USE_OPTIONS = false\n")
+                configfile.write("isHTTPS = isHTTPS\n")
+                configfile.write("clear = clear\n")
+                configfile.write("getpicture = getpicture\n")
+                configfile.write("start = start\n")
+                configfile.write("upload = upload\n")
+                configfile.write("test = test\n")
+                configfile.write("info = info\n")
 
         else:
             self.config.read(self.config_file)
-
 
     def get(self, section, option):
         try:
@@ -583,30 +583,35 @@ def run_command():
         log_event("Server-SERVER CANNOT RUN COMMAND", "warning", e)
         return jsonify(f"An error occurred: {str(e)}")
 
-@app.route("/adduuid",methods=['GET'])
+
+@app.route("/adduuid", methods=["GET"])
 def add_uuid():
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             if uuid not in clients:
-                clients[uuid]="API-"+uuid
-                gui.queue.put({"event": "New device", "UUID": uuid, "aID": "API-"+uuid})
+                clients[uuid] = "API-" + uuid
+                gui.queue.put(
+                    {"event": "New device", "UUID": uuid, "aID": "API-" + uuid}
+                )
             else:
                 pass
             return jsonify({"result": clients[uuid]}), 200
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error',e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
-@app.route("/removeuuid",methods=['GET'])
+
+@app.route("/removeuuid", methods=["GET"])
 def remove_uuid():
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             del clients[uuid]
-        log_event(f"Server-Client {uuid} disconnected", 'info')
+        log_event(f"Server-Client {uuid} disconnected", "info")
     except Exception as e:
-        log_event('Server-SERVER CANNOT Remove UUID', 'error',e)
+        log_event("Server-SERVER CANNOT Remove UUID", "error", e)
     return jsonify({"result": clients[uuid]}), 200
+
 
 # 监听客户端注册事件（传递 UUID）
 @socketios.on("register")
@@ -616,12 +621,14 @@ def handle_register(data):
             client_uuid = data["uuid"]
             if client_uuid not in clients:
                 clients[client_uuid] = request.sid
-                gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
-                send_message_to_client('Client registered successfully', client_uuid)
+                gui.queue.put(
+                    {"event": "New device", "UUID": data["uuid"], "aID": request.sid}
+                )
+                send_message_to_client("Client registered successfully", client_uuid)
             else:
                 pass
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error', e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
 
 @socketios.on("disconnect")
@@ -634,7 +641,7 @@ def handle_disconnect():
             break
     if uuid:
         del clients[uuid]  # 删除该客户端的连接信息
-    log_event(f"Server-Client {uuid} disconnected",'info')
+    log_event(f"Server-Client {uuid} disconnected", "info")
 
 
 # 发送消息到指定客户端
@@ -771,7 +778,8 @@ def run_gui():
         ssh_path=config_manager.get_with_default("SSH_Service", "ssh_path", "./CRT"),
         AdvanceAPISetting=config_manager.get_with_default(
             "API_Service", "USE_OPTIONS", "false"
-        ) == "true",
+        )
+        == "true",
         logSwitch=logSwitch,
         client_func=get_clients,
     )
