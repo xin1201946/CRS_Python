@@ -85,31 +85,33 @@ def process_image(image_path, save_path=None):
             with open(result_file_path, "a", encoding="utf-8") as f:
                 f.write(content_to_write)
         else:
-            print("未指定保存路径，将保存至数据库中")
+            print('未指定保存路径，将保存至数据库中')
             check_and_create_database("./db/data.db")
-            insert_hub_info("./db/data.db", result_text)
+            insert_hub_info("./db/data.db",result_text)
 
         return content_to_write
-    if os.path.isdir(image_path):
+    elif os.path.isdir(image_path):
         # 如果给定的是目录路径
         all_content_to_write = ""
         for root, dirs, files in os.walk(image_path):
             for file in files:
                 file_full_path = os.path.join(root, file)
                 file_name = os.path.basename(file_full_path)
-                result_text = get_num(file_full_path)
-                single_content = f"{file_name} - {result_text}\n"
+                print(file_full_path+file_name)
+                new_result_text = New_auto_run(file_full_path)
+                single_content = f"{file_name} - {new_result_text}\n"
                 all_content_to_write += single_content
                 if save_path:
                     result_file_path = os.path.join(save_path, "result.txt")
                     with open(result_file_path, "a", encoding="utf-8") as f:
                         f.write(single_content)
                 else:
-                    print("未指定保存路径，将保存至数据库中")
+                    print('未指定保存路径，将保存至数据库中')
                     check_and_create_database("./db/data.db")
-                    insert_hub_info("./db/data.db", result_text)
+                    insert_hub_info("./db/data.db", new_result_text)
         return all_content_to_write
-    raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
+    else:
+        raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
 
 
 def New_auto_run(path: None):

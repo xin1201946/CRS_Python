@@ -143,96 +143,41 @@ class ConfigManager:
         self.config = configparser.ConfigParser()
         self.config_file = config_file
         if not os.path.exists(self.config_file):
-            # 创建节
             self.config.add_section("Settings")
             self.config.add_section("SSH_Service")
             self.config.add_section("API_Service")
-            # 添加注释和配置项
+
             with open(self.config_file, "w") as configfile:
                 configfile.write(
                     "# This is a server configuration file. Any modifications require a server restart to take effect.\n"
                 )
-                configfile.write("[Settings]\n")
-                configfile.write(
-                    '# "host" specifies the IP or domain name the server listens on. Default is 127.0.0.1.\n'
-                )
-                configfile.write("host = 127.0.0.1\n")
-                configfile.write(
-                    '# "port" specifies the server listening port, effective only when HTTPS is disabled. Default is 5000.\n'
-                )
-                configfile.write("port = 5000\n")
-                configfile.write(
-                    '# "debug" indicates whether the server is in debug mode. No actual impact.\n'
-                )
-                configfile.write("debug = false\n")
-                configfile.write(
-                    '# "logSwitch" controls whether the front-end can access server logs.\n'
-                )
-                configfile.write("logSwitch = true\n")
 
-                configfile.write("\n[SSH_Service]\n")
-                configfile.write(
-                    '# "use_https" determines whether the server uses a more secure HTTPS protocol. Default is false.\n'
-                )
-                configfile.write(
-                    '# If "use_https" is enabled, the front-end must be updated accordingly in the advanced settings.\n'
-                )
-                configfile.write(
-                    "# Ensure that you have a valid certificate and private key for the domain, otherwise, the front-end will not trust the server, leading to functionality issues.\n"
-                )
-                configfile.write(
-                    '# This is a server configuration file. Any modifications require a server restart to take effect.\n')
-                configfile.write('[Settings]\n')
-                configfile.write(
-                    '# "host" specifies the IP or domain name the server listens on. Default is 127.0.0.1.\n')
+                # Settings
+                configfile.write("[Settings]\n")
                 configfile.write('host = 127.0.0.1\n')
-                configfile.write(
-                    '# "port" specifies the server listening port, effective only when HTTPS is disabled. Default is 5000.\n')
                 configfile.write('port = 5000\n')
-                configfile.write('# "debug" indicates whether the server is in debug mode. No actual impact.\n')
                 configfile.write('debug = false\n')
-                configfile.write('# "logSwitch" controls whether the front-end can access server logs.\n')
                 configfile.write('logSwitch = true\n')
 
-                configfile.write('\n[SSH_Service]\n')
-                configfile.write(
-                    '# "use_https" determines whether the server uses a more secure HTTPS protocol. Default is false.\n')
-                configfile.write(
-                    '# If "use_https" is enabled, the front-end must be updated accordingly in the advanced settings.\n')
-                configfile.write(
-                    '# Ensure that you have a valid certificate and private key for the domain, otherwise, the front-end will not trust the server, leading to functionality issues.\n')
-                configfile.write(
-                    '# Before enabling this option, place the certificate and private key in the directory specified by "ssh_path".\n')
+                # SSH_Service
+                configfile.write("\n[SSH_Service]\n")
                 configfile.write('use_https = false\n')
-                configfile.write(
-                    '# "ssh_path" specifies the directory where the certificate and private key are stored.\n')
                 configfile.write('ssh_path = ./CRT\n')
 
-                configfile.write('\n[API_Service]\n')
-                configfile.write(
-                    '# This section allows customization of API endpoints. Any changes require synchronization in the front-end advanced settings.\n')
-                configfile.write('# "USE_OPTIONS" must be set to true for the server to apply custom API settings.\n')
+                # API_Service
+                configfile.write("\n[API_Service]\n")
                 configfile.write('USE_OPTIONS = false\n')
-                configfile.write('# "isHTTPS" specifies whether the server uses HTTPS services.\n')
                 configfile.write('isHTTPS = isHTTPS\n')
-                configfile.write('# "clear" specifies the API used to delete uploaded images.\n')
                 configfile.write('clear = clear\n')
-                configfile.write('# "getpicture" specifies the API used to retrieve uploaded images.\n')
                 configfile.write('getpicture = getpicture\n')
-                configfile.write(
-                    '# "start" specifies the API used when the front-end requests the server to start processing.\n')
                 configfile.write('start = start\n')
-                configfile.write('# "upload" specifies the API used when a user uploads images.\n')
                 configfile.write('upload = upload\n')
-                configfile.write('# "test" specifies the API used to check the connection status of the front-end.\n')
                 configfile.write('test = test\n')
-                configfile.write(
-                    '# "info" specifies the API used to retrieve upload file information from the server.\n'
-                )
-                configfile.write("info = info\n")
+                configfile.write('info = info\n')
 
         else:
             self.config.read(self.config_file)
+
 
     def get(self, section, option):
         try:
@@ -644,19 +589,24 @@ def add_uuid():
     try:
         with clients_lock:
             if uuid not in clients:
-                clients[uuid]=uuid
+                clients[uuid]="API-"+uuid
                 gui.queue.put({"event": "New device", "UUID": uuid, "aID": "API-"+uuid})
             else:
                 pass
+            return jsonify({"result": clients[uuid]}), 200
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error', e)
+        log_event('Server-SERVER CANNOT REGISTER', 'error',e)
 
 @app.route("/removeuuid",methods=['GET'])
 def remove_uuid():
     uuid=request.args.get('uuid')
-    with clients_lock:
-        del clients[uuid]
-    log_event(f"Server-Client {uuid} disconnected",'info')
+    try:
+        with clients_lock:
+            del clients[uuid]
+        log_event(f"Server-Client {uuid} disconnected", 'info')
+    except Exception as e:
+        log_event('Server-SERVER CANNOT Remove UUID', 'error',e)
+    return jsonify({"result": clients[uuid]}), 200
 
 # 监听客户端注册事件（传递 UUID）
 @socketios.on("register")
@@ -821,8 +771,7 @@ def run_gui():
         ssh_path=config_manager.get_with_default("SSH_Service", "ssh_path", "./CRT"),
         AdvanceAPISetting=config_manager.get_with_default(
             "API_Service", "USE_OPTIONS", "false"
-        )
-        == "true",
+        ) == "true",
         logSwitch=logSwitch,
         client_func=get_clients,
     )
