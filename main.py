@@ -1,3 +1,6 @@
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+
 import eventlet
 eventlet.monkey_patch()
 import codecs
@@ -29,6 +32,8 @@ from CCRS_Library import (
     execute_custom_sql,
     flask_send_sysInfo,
 )
+from concurrent.futures import ProcessPoolExecutor
+
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(current_dir, "app.log")
@@ -95,6 +100,12 @@ clients = {}
 # 用于通知主线程 GUI 已经成功创建的事件
 gui_created_event = threading.Event()
 gui = None
+
+task_queue = queue.Queue(maxsize=50)  # 限制最多等待 50 个任务
+executor = ThreadPoolExecutor(max_workers=20)
+# executor = ProcessPoolExecutor(max_workers=20)
+jobs = {}  # 保存任务 UUID 与对应的 Future 对象
+jobs_status = {}  # {task_uuid: "waiting" | "processing" | "completed" | "failed"}
 
 
 def log_writer():
@@ -373,37 +384,76 @@ def getpic():
         )
         return jsonify({"error": "Internal server error"}), 500
 
+def process_file(uuid_file, task_uuid):
+    try:
+        # 更新任务状态为 processing
+        jobs_status[task_uuid] = "processing"
+        text = getNum.New_auto_run(uuid_file)
+        log_event("Server-OCR Service", "successfully", f"Task {task_uuid} processing result: {text}")
+        insert_hub_info(db_file=database_file, mold_number=text)
+        # 更新任务状态为 completed
+        jobs_status[task_uuid] = {"status":"completed","text":text}
+        return text
+    except Exception as e:
+        log_event("Server-OCR Service", "error", f"Task {task_uuid} processing failed: {str(e)}")
+        jobs_status[task_uuid] = {"status":"error","text":f"{str(e)}"}
+        return str(e)
 
-@app.route(f'/{API["start"]}', methods=["GET"])
+@app.route('/start', methods=["GET"])
 def start():
+    """提交任务"""
     try:
         client_uuid = request.args.get("uuid")
-        if not client_uuid or client_uuid not in clients:
-            return jsonify({"error": "Invalid Client ID"}), 403
+        if not client_uuid:
+            return jsonify({"info": "Invalid Client ID"}), 403
 
-        # 构建UUID对应的文件路径
-        uuid_file = os.path.join(UPLOAD_FOLDER, secure_filename(client_uuid))
+        uuid_file = os.path.join(UPLOAD_FOLDER, client_uuid)
         if not os.path.exists(uuid_file):
-            return jsonify(
-                {"error": "The upload file for this client was not found. "}
-            ), 404
+            return jsonify({"info": "The upload file for this client was not found."}), 404
 
-        # 处理特定客户端的文件
-        text = getNum.New_auto_run(uuid_file)  # 将文件路径传入处理函数
-        # 处理完成后删除对应的UUID文件
-        # delete_files_in_folder(UPLOAD_FOLDER, filename=secure_filename(client_uuid))
-        log_event(
-            "Server-OCR Service",
-            "successfully",
-            f"Client {client_uuid} processing result: {text}",
-        )
-        insert_hub_info(db_file=database_file, mold_number=text)
-        return jsonify([text]), 200
+        if task_queue.full():
+            return jsonify({"info": "任务队列已满，请稍后重试"}), 429
+
+        # 生成唯一任务 ID
+        task_uuid = str(uuid.uuid4())
+
+        # 记录任务
+        if client_uuid not in jobs:
+            jobs[client_uuid] = []
+        jobs[client_uuid].append(task_uuid)
+        jobs_status[task_uuid] = "waiting"
+
+        # 提交任务
+        future = executor.submit(process_file, uuid_file, task_uuid)
+
+        return jsonify({"info": "Task has been submitted", "task_uuid": task_uuid, "client_uuid": client_uuid}), 200
 
     except Exception as e:
-        log_event("Server-OCR Service", "error", f"Processing failed: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"info": str(e)}), 500
 
+
+@app.route('/status', methods=["GET"])
+def status():
+    """查询任务状态"""
+    client_uuid = request.args.get("uuid")
+    task_uuid = request.args.get("task")
+
+    if task_uuid:  # 查询单个任务
+        if task_uuid not in jobs_status:
+            return jsonify({"task_uuid": task_uuid, "status": "UUID not found"}), 404
+        return jsonify({"task_uuid": task_uuid, "status": jobs_status[task_uuid]}), 200
+
+    if client_uuid:  # 查询设备的所有任务
+        if client_uuid not in jobs:
+            return jsonify({"client_uuid": client_uuid, "tasks": []}), 200
+
+        task_status_list = [
+            {"task_uuid": task_uuid, "status": jobs_status.get(task_uuid, "unknown")}
+            for task_uuid in jobs[client_uuid]
+        ]
+        return jsonify({"client_uuid": client_uuid, "tasks": task_status_list}), 200
+
+    return jsonify({"info": "Missing query parameters"}), 400
 
 @app.route(f'/{API["upload"]}', methods=["POST"])
 def upload_file():
@@ -413,7 +463,6 @@ def upload_file():
             return jsonify({"error": "Invalid Client ID"}), 403
 
         files = request.files
-        print(f"Received files: {files}")  # 调试信息
         for file in files:
             if file and files[file].filename != "":
                 filename = secure_filename(client_uuid)
@@ -424,7 +473,7 @@ def upload_file():
         log_event(
             "Server-Upload Service", "successfully", f"Client {client_uuid} Upload File"
         )
-        return jsonify({"message": f"The file has been saved as {filename}"})
+        return jsonify({"message": f"The file has been saved as {filename}"}),200
 
     except Exception as e:
         log_event("Server-Upload Service", "error", f"File acceptance failed:{e}")
