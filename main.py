@@ -2,6 +2,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import eventlet
+
 eventlet.monkey_patch()
 import codecs
 from werkzeug.utils import secure_filename
@@ -165,30 +166,29 @@ class ConfigManager:
 
                 # Settings
                 configfile.write("[Settings]\n")
-                configfile.write('host = 127.0.0.1\n')
-                configfile.write('port = 5000\n')
-                configfile.write('debug = false\n')
-                configfile.write('logSwitch = true\n')
+                configfile.write("host = 127.0.0.1\n")
+                configfile.write("port = 5000\n")
+                configfile.write("debug = false\n")
+                configfile.write("logSwitch = true\n")
 
                 # SSH_Service
                 configfile.write("\n[SSH_Service]\n")
-                configfile.write('use_https = false\n')
-                configfile.write('ssh_path = ./CRT\n')
+                configfile.write("use_https = false\n")
+                configfile.write("ssh_path = ./CRT\n")
 
                 # API_Service
                 configfile.write("\n[API_Service]\n")
-                configfile.write('USE_OPTIONS = false\n')
-                configfile.write('isHTTPS = isHTTPS\n')
-                configfile.write('clear = clear\n')
-                configfile.write('getpicture = getpicture\n')
-                configfile.write('start = start\n')
-                configfile.write('upload = upload\n')
-                configfile.write('test = test\n')
-                configfile.write('info = info\n')
+                configfile.write("USE_OPTIONS = false\n")
+                configfile.write("isHTTPS = isHTTPS\n")
+                configfile.write("clear = clear\n")
+                configfile.write("getpicture = getpicture\n")
+                configfile.write("start = start\n")
+                configfile.write("upload = upload\n")
+                configfile.write("test = test\n")
+                configfile.write("info = info\n")
 
         else:
             self.config.read(self.config_file)
-
 
     def get(self, section, option):
         try:
@@ -384,22 +384,32 @@ def getpic():
         )
         return jsonify({"error": "Internal server error"}), 500
 
+
 def process_file(uuid_file, task_uuid):
     try:
         # 更新任务状态为 processing
         jobs_status[task_uuid] = "processing"
         text = getNum.New_auto_run(uuid_file)
-        log_event("Server-OCR Service", "successfully", f"Task {task_uuid} processing result: {text}")
+        log_event(
+            "Server-OCR Service",
+            "successfully",
+            f"Task {task_uuid} processing result: {text}",
+        )
         insert_hub_info(db_file=database_file, mold_number=text)
         # 更新任务状态为 completed
-        jobs_status[task_uuid] = {"status":"completed","text":text}
+        jobs_status[task_uuid] = {"status": "completed", "text": text}
         return text
     except Exception as e:
-        log_event("Server-OCR Service", "error", f"Task {task_uuid} processing failed: {str(e)}")
-        jobs_status[task_uuid] = {"status":"error","text":f"{str(e)}"}
+        log_event(
+            "Server-OCR Service",
+            "error",
+            f"Task {task_uuid} processing failed: {str(e)}",
+        )
+        jobs_status[task_uuid] = {"status": "error", "text": f"{str(e)}"}
         return str(e)
 
-@app.route('/start', methods=["GET"])
+
+@app.route("/start", methods=["GET"])
 def start():
     """提交任务"""
     try:
@@ -409,7 +419,9 @@ def start():
 
         uuid_file = os.path.join(UPLOAD_FOLDER, client_uuid)
         if not os.path.exists(uuid_file):
-            return jsonify({"info": "The upload file for this client was not found."}), 404
+            return jsonify(
+                {"info": "The upload file for this client was not found."}
+            ), 404
 
         if task_queue.full():
             return jsonify({"info": "任务队列已满，请稍后重试"}), 429
@@ -426,13 +438,19 @@ def start():
         # 提交任务
         future = executor.submit(process_file, uuid_file, task_uuid)
 
-        return jsonify({"info": "Task has been submitted", "task_uuid": task_uuid, "client_uuid": client_uuid}), 200
+        return jsonify(
+            {
+                "info": "Task has been submitted",
+                "task_uuid": task_uuid,
+                "client_uuid": client_uuid,
+            }
+        ), 200
 
     except Exception as e:
         return jsonify({"info": str(e)}), 500
 
 
-@app.route('/status', methods=["GET"])
+@app.route("/status", methods=["GET"])
 def status():
     """查询任务状态"""
     client_uuid = request.args.get("uuid")
@@ -455,6 +473,7 @@ def status():
 
     return jsonify({"info": "Missing query parameters"}), 400
 
+
 @app.route(f'/{API["upload"]}', methods=["POST"])
 def upload_file():
     try:
@@ -473,7 +492,7 @@ def upload_file():
         log_event(
             "Server-Upload Service", "successfully", f"Client {client_uuid} Upload File"
         )
-        return jsonify({"message": f"The file has been saved as {filename}"}),200
+        return jsonify({"message": f"The file has been saved as {filename}"}), 200
 
     except Exception as e:
         log_event("Server-Upload Service", "error", f"File acceptance failed:{e}")
@@ -632,30 +651,35 @@ def run_command():
         log_event("Server-SERVER CANNOT RUN COMMAND", "warning", e)
         return jsonify(f"An error occurred: {str(e)}")
 
-@app.route("/adduuid",methods=['GET'])
+
+@app.route("/adduuid", methods=["GET"])
 def add_uuid():
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             if uuid not in clients:
-                clients[uuid]="API-"+uuid
-                gui.queue.put({"event": "New device", "UUID": uuid, "aID": "API-"+uuid})
+                clients[uuid] = "API-" + uuid
+                gui.queue.put(
+                    {"event": "New device", "UUID": uuid, "aID": "API-" + uuid}
+                )
             else:
                 pass
             return jsonify({"result": clients[uuid]}), 200
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error',e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
-@app.route("/removeuuid",methods=['GET'])
+
+@app.route("/removeuuid", methods=["GET"])
 def remove_uuid():
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             del clients[uuid]
-        log_event(f"Server-Client {uuid} disconnected", 'info')
+        log_event(f"Server-Client {uuid} disconnected", "info")
     except Exception as e:
-        log_event('Server-SERVER CANNOT Remove UUID', 'error',e)
+        log_event("Server-SERVER CANNOT Remove UUID", "error", e)
     return jsonify({"result": clients[uuid]}), 200
+
 
 # 监听客户端注册事件（传递 UUID）
 @socketios.on("register")
@@ -665,12 +689,14 @@ def handle_register(data):
             client_uuid = data["uuid"]
             if client_uuid not in clients:
                 clients[client_uuid] = request.sid
-                gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
-                send_message_to_client('Client registered successfully', client_uuid)
+                gui.queue.put(
+                    {"event": "New device", "UUID": data["uuid"], "aID": request.sid}
+                )
+                send_message_to_client("Client registered successfully", client_uuid)
             else:
                 pass
     except Exception as e:
-        log_event('Server-SERVER CANNOT REGISTER', 'error', e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
 
 @socketios.on("disconnect")
@@ -683,7 +709,7 @@ def handle_disconnect():
             break
     if uuid:
         del clients[uuid]  # 删除该客户端的连接信息
-    log_event(f"Server-Client {uuid} disconnected",'info')
+    log_event(f"Server-Client {uuid} disconnected", "info")
 
 
 # 发送消息到指定客户端
@@ -820,7 +846,8 @@ def run_gui():
         ssh_path=config_manager.get_with_default("SSH_Service", "ssh_path", "./CRT"),
         AdvanceAPISetting=config_manager.get_with_default(
             "API_Service", "USE_OPTIONS", "false"
-        ) == "true",
+        )
+        == "true",
         logSwitch=logSwitch,
         client_func=get_clients,
     )
