@@ -19,11 +19,12 @@ ultralytics-thop~=2.0.9
 Flask-Cors~=5.0.0
 Werkzeug~=3.1.3
 tensorflow~=2.18.0
-python-socketio~=5.12.0
+python-socketio~=5.12.1
 yolov5
 Flask-SocketIO~=5.5.1
 GPUtil
 wifi
 speedtest-cli
-CCRS_Library~=2.0.5.14
+CCRS_Library~=2.0.6.0
 eventlet~=0.39.0
+fastapi~=0.115.11

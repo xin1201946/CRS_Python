@@ -1,7 +1,7 @@
 from CCRS_Library import (
     new_clear_pic as clearp,
     get_num_obb as newNumV,
-    insert_hub_info,
+    insert_recognition_record as insert_hub_info,
     check_and_create_database,
 )
 import os
@@ -11,21 +11,28 @@ from PIL import Image
 def get_pic(path):
     """
     使用get_pic(path[可省])后在调用其他函数！
+    调用此函数后再调用其他函数！
     :param path: 图片路径
+    :param path: Image path
     :return: 二值化，伽马矫正，对比度调整的图像
+    :return: An image that has undergone binarization, gamma correction, and contrast adjustment
     """
 
     pic_path = path if path is not None else "./flask-dist/UPLOAD/pic"
     img = Image.open(pic_path)
     bw_img = img.convert("L")  # 灰度图像
+    # Convert the image to grayscale
     return bw_img
 
 
 def cut_pic(img):
     """
     使用剪切模型定位数字区域
+    Use the cutting model to locate the digit area
     :param img: 经过二值化的图像
+    :param img: Binarized image
     :return: 裁剪后的图像
+    :return: Cropped image
     """
     return clearp(img)
 
@@ -39,7 +46,9 @@ def get_num(
 ) -> str:
     """
     使用模型获取数值
+    Use the model to obtain the numerical value
     :return: 数字文本 (str)
+    :return: Digital text (str)
     """
     return newNumV(
         save_file=save,
@@ -51,13 +60,20 @@ def get_num(
 
 
 def quick_cut_img(path, savepath):
+    # 检查保存路径是否为空
+    # Check if the save path is empty
     if savepath is None:
         return "No SavePath?"
+    # 检查保存路径是否存在，如果不存在则创建
+    # Check if the save path exists, create it if it doesn't
     if not os.path.exists(savepath):
         os.makedirs(savepath)
         print(f"Save directory '{savepath}' does not exist. Created successfully.")
+    # 遍历指定路径下的所有文件
+    # Iterate over all files in the specified path
     for filename in os.listdir(path):
         # 构建完整的文件路径
+        # Build the full file path
         file_path = os.path.join(path, filename)
         print(file_path)
         get_num(
@@ -72,27 +88,40 @@ def quick_cut_img(path, savepath):
 def process_image(image_path, save_path=None):
     """
     处理图片，获取文字结果并按格式保存到result.txt中（如果save_path指定）
+    Process the image, obtain the text result and save it in result.txt in the specified format (if save_path is specified)
     :param image_path: 图片文件路径，可以是单个文件路径也可以是包含图片文件的目录路径
+    :param image_path: Image file path, can be a single file path or a directory path containing image files
     :param save_path: 保存结果文件的路径，为None则不保存
+    :param save_path: Path to save the result file, do not save if it is None
     """
+    # 检查给定的路径是否为单个文件
+    # Check if the given path is a single file
     if os.path.isfile(image_path):
         # 如果给定的是单个文件路径
+        # If a single file path is given
         file_name = os.path.basename(image_path)
         result_text = get_num(image_path)
         content_to_write = f"{file_name} - {result_text}\n"
+        # 如果指定了保存路径
+        # If a save path is specified
         if save_path:
             result_file_path = os.path.join(save_path, "result.txt")
             with open(result_file_path, "a", encoding="utf-8") as f:
                 f.write(content_to_write)
         else:
-            print('未指定保存路径，将保存至数据库中')
+            print('No save path specified, will save to the database')
             check_and_create_database("./db/data.db")
             insert_hub_info("./db/data.db",result_text)
 
         return content_to_write
+    # 检查给定的路径是否为目录
+    # Check if the given path is a directory
     elif os.path.isdir(image_path):
         # 如果给定的是目录路径
+        # If a directory path is given
         all_content_to_write = ""
+        # 遍历目录下的所有文件
+        # Iterate over all files in the directory
         for root, dirs, files in os.walk(image_path):
             for file in files:
                 file_full_path = os.path.join(root, file)
@@ -101,24 +130,29 @@ def process_image(image_path, save_path=None):
                 new_result_text = New_auto_run(file_full_path)
                 single_content = f"{file_name} - {new_result_text}\n"
                 all_content_to_write += single_content
+                # 如果指定了保存路径
+                # If a save path is specified
                 if save_path:
                     result_file_path = os.path.join(save_path, "result.txt")
                     with open(result_file_path, "a", encoding="utf-8") as f:
                         f.write(single_content)
                 else:
-                    print('未指定保存路径，将保存至数据库中')
+                    print('No save path specified, will save to the database')
                     check_and_create_database("./db/data.db")
                     insert_hub_info("./db/data.db", new_result_text)
         return all_content_to_write
     else:
-        raise ValueError("给定的image_path既不是有效的文件路径也不是有效的目录路径")
+        raise ValueError("The given image_path is neither a valid file path nor a valid directory path")
 
 
 def New_auto_run(path: None):
     """
     一键调用
+    One-click call
     :param path: 图像路径，可为空
+    :param path: Image path, can be empty
     :return: 数字文本 (str)
+    :return: Digital text (str)
     """
     img, paths = clearp(get_pic(path))
     print(paths[0])
