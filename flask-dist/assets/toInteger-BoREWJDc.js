@@ -1,0 +1,1 @@
+import{c as r}from"./index-DAldieki.js";var n,t,u,e;function i(){if(e)return u;e=1;var i=function(){if(t)return n;t=1;var u=r(),e=1/0;return n=function(r){return r?(r=u(r))===e||r===-1/0?17976931348623157e292*(r<0?-1:1):r==r?r:0:0===r?r:0}}();return u=function(r){var n=i(r),t=n%1;return n==n?t?n-t:n:0}}export{i as r};

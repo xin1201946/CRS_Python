@@ -622,7 +622,7 @@ def process_file(uuid_file, task_uuid):
         jobs_status[task_uuid] = {"status":"error","text":f"{str(e)}"}
         return str(e)
 
-@app.route(f'{API["start"]}', methods=["GET"])
+@app.route(f'/{API["start"]}', methods=["GET"])
 def start():
     """
     提交任务路由
@@ -1456,7 +1456,7 @@ def main(args):
             # Start the log writing thread
             writer_thread.start()
 
-            if not args.nogui:
+            if not args.notui:
                 # 创建 Flask 服务器线程
                 # Create a Flask server thread
                 flask_thread = threading.Thread(target=init, daemon=True)

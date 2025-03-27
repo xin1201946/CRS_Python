@@ -50,6 +50,18 @@ jobs:
             echo "开始构建程序..."
             pyinstaller --name=CCRS --console --icon=CCRS.ico main.py
 
+      - name: 复制 Python 的 site-packages 到 dist\CCRS
+        run: |
+            $pythonPath = python -c "import sys; print(sys.executable)"
+            $sitePackagesPath = Split-Path -Path $pythonPath -Parent | Join-Path -ChildPath "Lib\site-packages"
+            Copy-Item -Path $sitePackagesPath -Destination "dist\CCRS" -Recurse -Force
+
+      - name: 复制 getNum.py 到根目录
+        run: Copy-Item -Path "./getNum.py" -Destination "dist\CCRS\"
+
+      - name: 复制 flask-dist 文件夹到 dist\CCRS
+        run: Copy-Item -Path "./flask-dist" -Destination "dist\CCRS\" -Recurse -Force
+
       - name: 打包构建产物
         run: Compress-Archive -Path "dist\CCRS\*" -DestinationPath "CCRS_Build.zip"
 
