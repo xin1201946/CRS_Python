@@ -2,6 +2,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import eventlet
+
 eventlet.monkey_patch()
 import codecs
 from werkzeug.utils import secure_filename
@@ -85,8 +86,8 @@ command_blacklist = ["drop table", "truncate", "delete from", "update"]
 # System information
 sys_info = {}
 # Model Type
-Cut_Img_Model_Ver="11"
-OCR_Model_Type="cls"
+Cut_Img_Model_Ver = "11"
+OCR_Model_Type = "cls"
 
 
 def sql_help(_):
@@ -125,7 +126,10 @@ sql_command_map = {
         check_and_create_database,
         "none",
     ),  # 检查数据库，无需参数
-    "--insert": (insert_recognition_record, "mold_number: The mold number to be inserted"),
+    "--insert": (
+        insert_recognition_record,
+        "mold_number: The mold number to be inserted",
+    ),
     "--history-records": (
         query_recognition_record_by_mold_number,
         "mold_number: The mold number to query",
@@ -257,31 +261,35 @@ class ConfigManager:
 
                 # Settings
                 configfile.write("[Settings]\n")
-                configfile.write('host = 127.0.0.1\n')
-                configfile.write('port = 5000\n')
-                configfile.write('debug = false\n')
-                configfile.write('logSwitch = true\n')
+                configfile.write("host = 127.0.0.1\n")
+                configfile.write("port = 5000\n")
+                configfile.write("debug = false\n")
+                configfile.write("logSwitch = true\n")
 
                 # SSH_Service
                 configfile.write("\n[SSH_Service]\n")
-                configfile.write('use_https = false\n')
-                configfile.write('ssh_path = ./CRT\n')
+                configfile.write("use_https = false\n")
+                configfile.write("ssh_path = ./CRT\n")
 
                 # API_Service
                 configfile.write("\n[API_Service]\n")
-                configfile.write('USE_OPTIONS = false\n')
-                configfile.write('isHTTPS = isHTTPS\n')
-                configfile.write('clear = clear\n')
-                configfile.write('getpicture = getpicture\n')
-                configfile.write('start = start\n')
-                configfile.write('upload = upload\n')
-                configfile.write('test = test\n')
-                configfile.write('info = info\n')
+                configfile.write("USE_OPTIONS = false\n")
+                configfile.write("isHTTPS = isHTTPS\n")
+                configfile.write("clear = clear\n")
+                configfile.write("getpicture = getpicture\n")
+                configfile.write("start = start\n")
+                configfile.write("upload = upload\n")
+                configfile.write("test = test\n")
+                configfile.write("info = info\n")
 
                 # Model
                 configfile.write("\n[Model]\n")
-                configfile.write("\n# This part is used to replace the built-in model to meet different needs, and it works with  YOLO 11[CutImgModelVersion] + YOLO11-cls[OCRModel] by default\n")
-                configfile.write("\n# CutImgModelVersion supports both 5 and 11[default] versions\n")
+                configfile.write(
+                    "\n# This part is used to replace the built-in model to meet different needs, and it works with  YOLO 11[CutImgModelVersion] + YOLO11-cls[OCRModel] by default\n"
+                )
+                configfile.write(
+                    "\n# CutImgModelVersion supports both 5 and 11[default] versions\n"
+                )
                 configfile.write("\nCutImgModelVersion = 11\n")
                 configfile.write("\n# OCRModel supports 'obb',obj' and 'cls'\n")
                 configfile.write("\nOCRModel = cls\n")
@@ -303,7 +311,11 @@ class ConfigManager:
         except (configparser.NoSectionError, configparser.NoOptionError):
             # 记录警告日志事件
             # Record warning log events
-            log_event("Server-Setting Service", "warning", f"{section}>{option}:{configparser.NoSectionError} with {configparser.NoOptionError}")
+            log_event(
+                "Server-Setting Service",
+                "warning",
+                f"{section}>{option}:{configparser.NoSectionError} with {configparser.NoOptionError}",
+            )
             return None
 
     def get_with_default(self, section, option, default=None):
@@ -603,6 +615,7 @@ def getpic():
         )
         return jsonify({"error": "Internal server error"}), 500
 
+
 def process_file(uuid_file, task_uuid):
     """
     处理文件任务
@@ -614,23 +627,36 @@ def process_file(uuid_file, task_uuid):
         jobs_status[task_uuid] = "processing"
         # 调用 getNum.New_auto_run 处理文件
         # Call getNum.New_auto_run to process the file
-        text = getNum.New_auto_run(Clear_Pic_model_version=Cut_Img_Model_Ver,OCR_model_type=OCR_Model_Type,path=uuid_file)
+        text = getNum.New_auto_run(
+            Clear_Pic_model_version=Cut_Img_Model_Ver,
+            OCR_model_type=OCR_Model_Type,
+            path=uuid_file,
+        )
         # 记录日志事件
         # Record log events
-        log_event("Server-OCR Service", "successfully", f"Task {task_uuid} processing result: {text}")
+        log_event(
+            "Server-OCR Service",
+            "successfully",
+            f"Task {task_uuid} processing result: {text}",
+        )
         # 插入识别记录到数据库
         # Insert recognition records into the database
         insert_recognition_record(db_file=database_file, mold_number=text)
         # 更新任务状态为 completed
         # Update the task status to completed
-        jobs_status[task_uuid] = {"status":"completed","text":text}
+        jobs_status[task_uuid] = {"status": "completed", "text": text}
         return text
     except Exception as e:
         # 记录错误日志事件
         # Record error log events
-        log_event("Server-OCR Service", "error", f"Task {task_uuid} processing failed: {str(e)}")
-        jobs_status[task_uuid] = {"status":"error","text":f"{str(e)}"}
+        log_event(
+            "Server-OCR Service",
+            "error",
+            f"Task {task_uuid} processing failed: {str(e)}",
+        )
+        jobs_status[task_uuid] = {"status": "error", "text": f"{str(e)}"}
         return str(e)
+
 
 @app.route(f'/{API["start"]}', methods=["GET"])
 def start():
@@ -649,7 +675,9 @@ def start():
         # Build the file path
         uuid_file = os.path.join(UPLOAD_FOLDER, client_uuid)
         if not os.path.exists(uuid_file):
-            return jsonify({"info": "The upload file for this client was not found."}), 404
+            return jsonify(
+                {"info": "The upload file for this client was not found."}
+            ), 404
 
         if task_queue.full():
             return jsonify({"info": "任务队列已满，请稍后重试"}), 429
@@ -669,13 +697,19 @@ def start():
         # Submit the task
         future = executor.submit(process_file, uuid_file, task_uuid)
 
-        return jsonify({"info": "Task has been submitted", "task_uuid": task_uuid, "client_uuid": client_uuid}), 200
+        return jsonify(
+            {
+                "info": "Task has been submitted",
+                "task_uuid": task_uuid,
+                "client_uuid": client_uuid,
+            }
+        ), 200
 
     except Exception as e:
         return jsonify({"info": str(e)}), 500
 
 
-@app.route('/status', methods=["GET"])
+@app.route("/status", methods=["GET"])
 def status():
     """
     查询任务状态路由
@@ -706,6 +740,7 @@ def status():
         return jsonify({"client_uuid": client_uuid, "tasks": task_status_list}), 200
 
     return jsonify({"info": "Missing query parameters"}), 400
+
 
 @app.route(f'/{API["upload"]}', methods=["POST"])
 def upload_file():
@@ -741,7 +776,7 @@ def upload_file():
         log_event(
             "Server-Upload Service", "successfully", f"Client {client_uuid} Upload File"
         )
-        return jsonify({"message": f"The file has been saved as {filename}"}),200
+        return jsonify({"message": f"The file has been saved as {filename}"}), 200
 
     except Exception as e:
         # 记录错误日志事件
@@ -986,7 +1021,8 @@ def run_command():
         log_event("Server-SERVER CANNOT RUN COMMAND", "warning", e)
         return jsonify(f"An error occurred: {str(e)}")
 
-@app.route("/adduuid",methods=['GET'])
+
+@app.route("/adduuid", methods=["GET"])
 def add_uuid():
     """
     添加 UUID 路由
@@ -994,25 +1030,28 @@ def add_uuid():
     """
     # 从请求参数中获取 UUID
     # Get the UUID from the request parameters
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             if uuid not in clients:
                 # 记录客户端 UUID 和对应的 API ID
                 # Record the client UUID and the corresponding API ID
-                clients[uuid]="API-"+uuid
+                clients[uuid] = "API-" + uuid
                 # 将新设备事件放入 GUI 队列
                 # Put the new device event into the GUI queue
-                gui.queue.put({"event": "New device", "UUID": uuid, "aID": "API-"+uuid})
+                gui.queue.put(
+                    {"event": "New device", "UUID": uuid, "aID": "API-" + uuid}
+                )
             else:
                 pass
             return jsonify({"result": clients[uuid]}), 200
     except Exception as e:
         # 记录错误日志事件
         # Record error log events
-        log_event('Server-SERVER CANNOT REGISTER', 'error',e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
-@app.route("/removeuuid",methods=['GET'])
+
+@app.route("/removeuuid", methods=["GET"])
 def remove_uuid():
     """
     移除 UUID 路由
@@ -1020,7 +1059,7 @@ def remove_uuid():
     """
     # 从请求参数中获取 UUID
     # Get the UUID from the request parameters
-    uuid=request.args.get('uuid')
+    uuid = request.args.get("uuid")
     try:
         with clients_lock:
             # 从客户端列表中移除 UUID
@@ -1028,12 +1067,13 @@ def remove_uuid():
             del clients[uuid]
         # 记录日志事件
         # Record log events
-        log_event(f"Server-Client {uuid} disconnected", 'info')
+        log_event(f"Server-Client {uuid} disconnected", "info")
     except Exception as e:
         # 记录错误日志事件
         # Record error log events
-        log_event('Server-SERVER CANNOT Remove UUID', 'error',e)
+        log_event("Server-SERVER CANNOT Remove UUID", "error", e)
     return jsonify({"result": clients[uuid]}), 200
+
 
 # 监听客户端注册事件（传递 UUID）
 # Listen for client registration events (pass UUID)
@@ -1054,16 +1094,18 @@ def handle_register(data):
                 clients[client_uuid] = request.sid
                 # 将新设备事件放入 GUI 队列
                 # Put the new device event into the GUI queue
-                gui.queue.put({"event": "New device", "UUID": data['uuid'], "aID": request.sid})
+                gui.queue.put(
+                    {"event": "New device", "UUID": data["uuid"], "aID": request.sid}
+                )
                 # 发送注册成功消息给客户端
                 # Send a registration success message to the client
-                send_message_to_client('Client registered successfully', client_uuid)
+                send_message_to_client("Client registered successfully", client_uuid)
             else:
                 pass
     except Exception as e:
         # 记录错误日志事件
         # Record error log events
-        log_event('Server-SERVER CANNOT REGISTER', 'error', e)
+        log_event("Server-SERVER CANNOT REGISTER", "error", e)
 
 
 @socketios.on("disconnect")
@@ -1085,7 +1127,7 @@ def handle_disconnect():
         del clients[uuid]
     # 记录日志事件
     # Record log events
-    log_event(f"Server-Client {uuid} disconnected",'info')
+    log_event(f"Server-Client {uuid} disconnected", "info")
 
 
 # 发送消息到指定客户端
@@ -1130,7 +1172,17 @@ def init():
     Initialize the server
     """
     # Retrieve user configuration file information
-    global host, port, UPLOAD_FOLDER, API, debug, logSwitch, gui, use_https,OCR_Model_Type,Cut_Img_Model_Ver
+    global \
+        host, \
+        port, \
+        UPLOAD_FOLDER, \
+        API, \
+        debug, \
+        logSwitch, \
+        gui, \
+        use_https, \
+        OCR_Model_Type, \
+        Cut_Img_Model_Ver
     # 记录日志事件
     # Record log events
     log_event("Server-Configuration Reading Service", "successfully", first_log=True)
@@ -1152,8 +1204,10 @@ def init():
     # Get the debug mode switch status from the configuration file
     debug = config_manager.get_with_default("Settings", "debug", "false")
     # Gets the specified model type from the configuration file
-    Cut_Img_Model_Ver=config_manager.get_with_default("Model", "Cut_Img_Model_Ver", "11")
-    OCR_Model_Type=config_manager.get_with_default("Model", "OCR_Model_Type", "cls")
+    Cut_Img_Model_Ver = config_manager.get_with_default(
+        "Model", "Cut_Img_Model_Ver", "11"
+    )
+    OCR_Model_Type = config_manager.get_with_default("Model", "OCR_Model_Type", "cls")
 
     # 从配置文件中获取是否使用 HTTPS 的设置
     # Get the setting of whether to use HTTPS from the configuration file
@@ -1304,7 +1358,8 @@ def run_tui():
         # Get the setting of whether to use the advanced API from the configuration file, if not found, use the default value false
         AdvanceAPISetting=config_manager.get_with_default(
             "API_Service", "USE_OPTIONS", "false"
-        ) == "true",
+        )
+        == "true",
         # 传递日志开关状态给 GUI
         # Pass the log switch status to the GUI
         logSwitch=logSwitch,
