@@ -28,7 +28,8 @@ if not exist ".\.venv\Scripts\python.exe" (
     --windows-file-description="Casting Char Recognition System" ^
     --product-version=2.0.5 ^
     --file-version=2.0.5 ^
-    --lto=yes ^
+    --lto=no ^
+    ----cache-dir=.\cache ^
     --output-filename=CCRS ^
     --assume-yes-for-downloads ^
     main.py 

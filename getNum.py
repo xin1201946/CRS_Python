@@ -1,6 +1,9 @@
 from CCRS_Library import (
-    new_clear_pic as clearp,
-    get_num_obb as newNumV,
+    new_clear_pic as clear_pic_11,
+    clear_pic as clear_pic_5,
+    get_num_obb,
+    get_num_cls,
+    get_num_obj,
     insert_recognition_record as insert_hub_info,
     check_and_create_database,
 )
@@ -34,7 +37,7 @@ def cut_pic(img):
     :return: 裁剪后的图像
     :return: Cropped image
     """
-    return clearp(img)
+    return clear_pic_11(img)
 
 
 def get_num(
@@ -50,7 +53,7 @@ def get_num(
     :return: 数字文本 (str)
     :return: Digital text (str)
     """
-    return newNumV(
+    return get_num_cls(
         save_file=save,
         save_path=save_path,
         save_name=save_name,
@@ -145,15 +148,30 @@ def process_image(image_path, save_path=None):
         raise ValueError("The given image_path is neither a valid file path nor a valid directory path")
 
 
-def New_auto_run(path: None):
+def New_auto_run(path: None,
+                 Clear_Pic_model_version="11",
+                 OCR_model_type="cls"
+                 ):
     """
     一键调用
     One-click call
     :param path: 图像路径，可为空
+    :param Clear_Pic_model_version: 裁剪模型版本,默认为'11',可选 '5'
+    :param OCR_model_type: 识别模型类型,默认为'obb',可选 'obj' 和 'cls'
     :param path: Image path, can be empty
+    :param Clear_Pic_model_version: Crop model version, default is '11', optional '5'
+    :param OCR_model_type: Identify the model type, default is 'obb', optional 'obj' and 'cls'
     :return: 数字文本 (str)
     :return: Digital text (str)
     """
-    img, paths = clearp(get_pic(path))
-    print(paths[0])
-    return get_num(img, load_imagePath=paths[0])
+    if Clear_Pic_model_version == "11":
+        img, paths = clear_pic_11(get_pic(path))
+    else:
+        img, paths = clear_pic_5(get_pic(path))
+
+    if OCR_model_type == "obb":
+        return get_num_obb(save_file=False, show_result=False,load_imagePath=paths[0])
+    elif OCR_model_type == "obj":
+        return get_num_obj(save_file=False, show_result=False,load_imagePath=paths[0])
+    elif OCR_model_type == "cls":
+        return get_num_cls(save_file=False, show_result=False,load_imagePath=paths[0])

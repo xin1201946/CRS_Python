@@ -84,6 +84,9 @@ command_blacklist = ["drop table", "truncate", "delete from", "update"]
 # 系统信息
 # System information
 sys_info = {}
+# Model Type
+Cut_Img_Model_Ver="11"
+OCR_Model_Type="cls"
 
 
 def sql_help(_):
@@ -275,6 +278,13 @@ class ConfigManager:
                 configfile.write('test = test\n')
                 configfile.write('info = info\n')
 
+                # Model
+                configfile.write("\n[Model]\n")
+                configfile.write("\n# This part is used to replace the built-in model to meet different needs, and it works with  YOLO 11[CutImgModelVersion] + YOLO11-cls[OCRModel] by default\n")
+                configfile.write("\n# CutImgModelVersion supports both 5 and 11[default] versions\n")
+                configfile.write("\nCutImgModelVersion = 11\n")
+                configfile.write("\n# OCRModel supports 'obb',obj' and 'cls'\n")
+                configfile.write("\nOCRModel = cls\n")
         else:
             # 如果配置文件存在，读取配置文件
             # If the configuration file exists, read the configuration file
@@ -293,7 +303,7 @@ class ConfigManager:
         except (configparser.NoSectionError, configparser.NoOptionError):
             # 记录警告日志事件
             # Record warning log events
-            log_event("Server-Setting Service", "warning", f"{section}>{option}")
+            log_event("Server-Setting Service", "warning", f"{section}>{option}:{configparser.NoSectionError} with {configparser.NoOptionError}")
             return None
 
     def get_with_default(self, section, option, default=None):
@@ -604,7 +614,7 @@ def process_file(uuid_file, task_uuid):
         jobs_status[task_uuid] = "processing"
         # 调用 getNum.New_auto_run 处理文件
         # Call getNum.New_auto_run to process the file
-        text = getNum.New_auto_run(uuid_file)
+        text = getNum.New_auto_run(Clear_Pic_model_version=Cut_Img_Model_Ver,OCR_model_type=OCR_Model_Type,path=uuid_file)
         # 记录日志事件
         # Record log events
         log_event("Server-OCR Service", "successfully", f"Task {task_uuid} processing result: {text}")
@@ -1120,7 +1130,7 @@ def init():
     Initialize the server
     """
     # Retrieve user configuration file information
-    global host, port, UPLOAD_FOLDER, API, debug, logSwitch, gui, use_https
+    global host, port, UPLOAD_FOLDER, API, debug, logSwitch, gui, use_https,OCR_Model_Type,Cut_Img_Model_Ver
     # 记录日志事件
     # Record log events
     log_event("Server-Configuration Reading Service", "successfully", first_log=True)
@@ -1141,6 +1151,9 @@ def init():
     # 从配置文件中获取调试模式开关状态
     # Get the debug mode switch status from the configuration file
     debug = config_manager.get_with_default("Settings", "debug", "false")
+    # Gets the specified model type from the configuration file
+    Cut_Img_Model_Ver=config_manager.get_with_default("Model", "Cut_Img_Model_Ver", "11")
+    OCR_Model_Type=config_manager.get_with_default("Model", "OCR_Model_Type", "cls")
 
     # 从配置文件中获取是否使用 HTTPS 的设置
     # Get the setting of whether to use HTTPS from the configuration file
@@ -1471,9 +1484,9 @@ def main(args):
                 return 0
 
             if args.simulate:
-                if not args.tui:
-                    # 创建 GUI 线程
-                    # Create a GUI thread
+                if not args.notui:
+                    # 创建 TUI 线程
+                    # Create a TUI thread
                     flask_gui = threading.Thread(target=run_tui, daemon=True)
                     flask_gui.start()
                 time.sleep(5)
