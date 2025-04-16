@@ -81,7 +81,13 @@ def quick_cut_img(path, savepath):
         print(file_path)
         if filename.endswith(".jpg") or filename.endswith(".png"):
             img, paths = clear_pic_11(get_pic(file_path))
-            get_num_cls(save_path=savepath, save_name=filename,save_file=True, load_imagePath=paths[0],allow_Null=False)
+            get_num_cls(
+                save_path=savepath,
+                save_name=filename,
+                save_file=True,
+                load_imagePath=paths[0],
+                allow_Null=False,
+            )
     return True
 
 
@@ -109,9 +115,9 @@ def process_image(image_path, save_path=None):
             with open(result_file_path, "a", encoding="utf-8") as f:
                 f.write(content_to_write)
         else:
-            print('No save path specified, will save to the database')
+            print("No save path specified, will save to the database")
             check_and_create_database("./db/data.db")
-            insert_hub_info("./db/data.db",result_text)
+            insert_hub_info("./db/data.db", result_text)
 
         return content_to_write
     # 检查给定的路径是否为目录
@@ -126,7 +132,7 @@ def process_image(image_path, save_path=None):
             for file in files:
                 file_full_path = os.path.join(root, file)
                 file_name = os.path.basename(file_full_path)
-                print(file_full_path+file_name)
+                print(file_full_path + file_name)
                 new_result_text = New_auto_run(file_full_path)
                 single_content = f"{file_name} - {new_result_text}\n"
                 all_content_to_write += single_content
@@ -137,18 +143,17 @@ def process_image(image_path, save_path=None):
                     with open(result_file_path, "a", encoding="utf-8") as f:
                         f.write(single_content)
                 else:
-                    print('No save path specified, will save to the database')
+                    print("No save path specified, will save to the database")
                     check_and_create_database("./db/data.db")
                     insert_hub_info("./db/data.db", new_result_text)
         return all_content_to_write
     else:
-        raise ValueError("The given image_path is neither a valid file path nor a valid directory path")
+        raise ValueError(
+            "The given image_path is neither a valid file path nor a valid directory path"
+        )
 
 
-def New_auto_run(path: None,
-                 Clear_Pic_model_version="11",
-                 OCR_model_type="cls"
-                 ):
+def New_auto_run(path: None, Clear_Pic_model_version="11", OCR_model_type="cls"):
     """
     一键调用
     One-click call
@@ -161,15 +166,17 @@ def New_auto_run(path: None,
     :return: 数字文本 (str)
     :return: Digital text (str)
     """
-    print(Clear_Pic_model_version,OCR_model_type)
+    print(Clear_Pic_model_version, OCR_model_type)
     if Clear_Pic_model_version == "11":
         img, paths = clear_pic_11(get_pic(path))
     else:
         img, paths = clear_pic_5(get_pic(path))
 
     if OCR_model_type == "obb":
-        return get_num_obb(save_file=False, show_result=False,load_imagePath=paths[0])
+        return get_num_obb(save_file=False, show_result=False, load_imagePath=paths[0])
     elif OCR_model_type == "obj":
-        return get_num_obj(save_file=False, show_result=False,load_imagePath=paths[0])
+        return get_num_obj(save_file=False, show_result=False, load_imagePath=paths[0])
     elif OCR_model_type == "cls":
-        return get_num_cls(save_file=False, show_result=False,load_imagePath=paths[0],allow_Null=True)
+        return get_num_cls(
+            save_file=False, show_result=False, load_imagePath=paths[0], allow_Null=True
+        )
