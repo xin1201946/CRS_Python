@@ -29,7 +29,6 @@ if not exist ".\.venv\Scripts\python.exe" (
     --product-version=2.0.5 ^
     --file-version=2.0.5 ^
     --lto=no ^
-    ----cache-dir=.\cache ^
     --output-filename=CCRS ^
     --assume-yes-for-downloads ^
     main.py 

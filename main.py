@@ -801,15 +801,6 @@ def return_info():
     return jsonify({"file_count": file_num, "file_list": file_list, "API": API}), 200
 
 
-@app.errorhandler(404)
-def page404(e):
-    """
-    404 错误处理路由
-    404 error handling route
-    """
-    return render_template("/error_page/404.html"), 404
-
-
 def print_info(host, port, elseinfo=""):
     """
     打印服务器信息
@@ -1152,8 +1143,8 @@ def init():
     # Get the debug mode switch status from the configuration file
     debug = config_manager.get_with_default("Settings", "debug", "false")
     # Gets the specified model type from the configuration file
-    Cut_Img_Model_Ver=config_manager.get_with_default("Model", "Cut_Img_Model_Ver", "11")
-    OCR_Model_Type=config_manager.get_with_default("Model", "OCR_Model_Type", "cls")
+    Cut_Img_Model_Ver=config_manager.get_with_default("Model", "CutImgModelVersion", "11")
+    OCR_Model_Type=config_manager.get_with_default("Model", "OCRModel", "cls")
 
     # 从配置文件中获取是否使用 HTTPS 的设置
     # Get the setting of whether to use HTTPS from the configuration file
@@ -1480,6 +1471,7 @@ def main(args):
             else:
                 # 启动服务器
                 # Start the server
+
                 init()
                 return 0
 

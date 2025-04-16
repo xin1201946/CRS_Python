@@ -20,7 +20,7 @@ def get_pic(path):
     :return: 二值化，伽马矫正，对比度调整的图像
     :return: An image that has undergone binarization, gamma correction, and contrast adjustment
     """
-
+    print(path)
     pic_path = path if path is not None else "./flask-dist/UPLOAD/pic"
     img = Image.open(pic_path)
     bw_img = img.convert("L")  # 灰度图像
@@ -79,12 +79,9 @@ def quick_cut_img(path, savepath):
         # Build the full file path
         file_path = os.path.join(path, filename)
         print(file_path)
-        get_num(
-            cut_pic(get_pic(file_path)),
-            save=True,
-            save_name=filename,
-            save_path=savepath,
-        )
+        if filename.endswith(".jpg") or filename.endswith(".png"):
+            img, paths = clear_pic_11(get_pic(file_path))
+            get_num_cls(save_path=savepath, save_name=filename,save_file=True, load_imagePath=paths[0],allow_Null=False)
     return True
 
 
@@ -164,6 +161,7 @@ def New_auto_run(path: None,
     :return: 数字文本 (str)
     :return: Digital text (str)
     """
+    print(Clear_Pic_model_version,OCR_model_type)
     if Clear_Pic_model_version == "11":
         img, paths = clear_pic_11(get_pic(path))
     else:
@@ -174,4 +172,4 @@ def New_auto_run(path: None,
     elif OCR_model_type == "obj":
         return get_num_obj(save_file=False, show_result=False,load_imagePath=paths[0])
     elif OCR_model_type == "cls":
-        return get_num_cls(save_file=False, show_result=False,load_imagePath=paths[0])
+        return get_num_cls(save_file=False, show_result=False,load_imagePath=paths[0],allow_Null=True)
