@@ -44,6 +44,6 @@ flowchart LR
 ```
 
 ## 注意
-自2.0.0开始，我们将模型及依赖库整合为CCRS_Library包，且不再开源
+自2.0.0开始，我们将模型及依赖库整合为[CCRS_Library](https://github.com/xin1201946/CRS_Library)包
 
 
